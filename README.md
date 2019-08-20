@@ -10,4 +10,6 @@ To use this script with your data files, change the file path on line 56 to poin
 
 The script will output a dataframe for each CSV file; dataframes will be named Survey.Number_df. The dataframe will have clean numerical output for single-answer questions, and also will have all variables renamed as Survey.Number_Question.Number_Question.Type.
 
-If you also want a CSV file outputted, you could add this at the end of the code: write.csv(your_df, file = "C:/your_file_path/your_filename.csv", na = "").
+If you also want a CSV file outputted, you could add this at the end of the code: 
+
+> write.csv(your_df, file = "C:/your_file_path/your_filename.csv", na = "")

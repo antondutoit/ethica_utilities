@@ -1,6 +1,6 @@
 # Title: Ethica output cleaning and variable renaming
 
-# Frontmatter instructions and notes
+# Frontmatter instructions and notes ---- 
 # This script processes CSV files as output from Ethica. xxx ....
 
 # To use this script with your data files: 
@@ -42,7 +42,7 @@ count_NA <- function(data) {
   }
 
 
-# Load and rename .csv files ----
+# Load and rename CSV files ----
 file_names <- Sys.glob("C:/your/file/path/something/like/files_to_process/*.csv")
 df_names <- data.frame()
 
@@ -58,7 +58,7 @@ for (file_name in file_names) {
 # Extract survey number; this expression will extract 3- to 5-digit survey numbers.
   survey_numbers[i] <- str_extract(file_name, 
                                  DGT %R% DGT %R% DGT %R% optional(DGT) %R% optional(DGT)) 
-# Generate df names from csv file names
+# Generate df names from CSV file names
   df_name <- paste(survey_numbers[i], sep = "_", "df", collapse = NULL)
 
   df_names <- c(df_names, df_name)
@@ -101,5 +101,5 @@ for (df_name in df_names)  {
   df_list[[df_name]] <- df_temp
   }
 
-# Un-comment and add file path if a CSV file is required. NB Keep this function call at the end of the script, 
+# Un-comment and add file path if a CSV file is required. NB Keep this function call at the end of the script.  
 # write.csv(pathways_df, file = "C:/your/file/path/something/like/output_files/your_filename.csv")

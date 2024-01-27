@@ -1,5 +1,5 @@
 # ethica_utilities
-Utility software for the Ethica mobile data collection platform
+Utility software for the Avicenna/Ethica mobile data collection platform
 
 First utility is:
 

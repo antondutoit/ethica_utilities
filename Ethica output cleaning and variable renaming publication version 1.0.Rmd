@@ -57,22 +57,20 @@ count_NA <- function(data) {
 file_names <- Sys.glob("C:/your/file/path/something/like/files_to_process/*.csv")
 df_names <- data.frame()
 
+# Set up empty objects 
+survey_numbers <- vector()
+df_list <- list()
+
 # Create vector of data frame names from file_names: df_names
 i <- 0
 
-# Set up empty vector for later use.
-survey_numbers <- vector()
-#----NEW----
-df_list <- list()
-
 for (file_name in file_names) {
 i <- i + 1
-# survey_number <- 0
-# Extract survey number from Ethica using regex; this expression will extract 3- to 5-digit survey numbers.
+# Extract survey number; this expression will extract 3- to 5-digit survey numbers.
 survey_numbers[i] <- str_extract(file_name, 
                    DGT %R% DGT %R% DGT %R% optional(DGT) %R% optional(DGT)) 
 
-# Generate appropriate df names from csv file names:
+# Generate df names from csv file names
 df_name <- paste(survey_numbers[i], sep = "_", "df", collapse = NULL)
 
 # commented out for now to try c() instead of append().

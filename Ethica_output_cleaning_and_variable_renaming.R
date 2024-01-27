@@ -1,4 +1,4 @@
-# Title: Ethica output cleaning and variable renaming
+# Title: Avicenna/Ethica output cleaning and variable renaming
 
 # Frontmatter instructions and notes ---- 
 # This script processes CSV files as output from Ethica. xxx ....

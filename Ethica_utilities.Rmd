@@ -9,19 +9,35 @@ output: html_document
 knitr::opts_chunk$set(echo = FALSE)
 
 # Load libraries ----
-library("rebus")
+library(rebus)
 # library("data.table")
-library("tidyverse")      # edit to include only the individual packages needed
+library(tidyverse)      # edit to include only the individual packages needed
+library(magrittr)
 
 ```
+
+## Define names and constants
+```{r Create: Define names and constants}
+# NB backslashes must be changed into forward slashes   
+# [ ] make or find a wee function to do this   
+data_path <- "C:/Users/atdut/OneDrive - Western Sydney University/PhD/Rwork/ethica_utilities/data_files_json"
+
+```
+
+## Read in test data files   
+```{r Create: read in test data files}
+
+
+```
+
 
 ## Functions for reading in Avicenna data files   
 ```{r Create: functions for reading in Avicenna data files}
 
 ```
 
-## Functions for output cleaning and variable renaming    
-```{r Create: functions for output cleaning and variable renaming}
+## Functions for output cleaning       
+```{r Create: functions for output cleaning}
 # Frontmatter instructions and notes ---- 
 # This script processes CSV files as output from Ethica. 
 # To use this script with your data files: 
@@ -56,13 +72,22 @@ count_NA <- function(data) {
   apply(data, 1, countRowNAs)
   }
 
+```
+
+## Functions for file naming and variable renaming    
+```{r Create: functions for file naming and variable renaming}
 # Load and rename CSV files ----
-file_names <- Sys.glob("C:/your/file/path/something/like/files_to_process/*.csv")
+file_names <- Sys.glob(paste0(data_path, "/*.csv"))
 df_names <- data.frame()
 
 # Set up empty objects 
 survey_numbers <- vector()
 df_list <- list()
+
+# extract study number 
+study_number <- str_extract(file_names[1], pattern = 
+                                 "activity_response_" %R% DGT %R% DGT %R% DGT %R% DGT %R% optional(DGT))
+study_number <- study_number %>% str_remove_all("activity_response_")
 
 # Create data frame names from file_names and read in data from CSV files ----
 i <- 0
@@ -70,53 +95,74 @@ i <- 0
 for (file_name in file_names) {
   i <- i + 1
 # Extract survey number; this expression will extract 3- to 6-digit survey numbers.
-  survey_numbers[i] <- str_extract(file_name, 
-                                 DGT %R% DGT %R% DGT %R% optional(DGT) %R% optional(DGT)  %R% optional(DGT)) 
+survey_numbers[i] <- str_extract(file_name, pattern = 
+                                 '_' %R% DGT %R% DGT %R% DGT %R% DGT %R% DGT %R% optional(DGT) %R% '_')
+survey_numbers[i] <- survey_numbers[i] %>% str_remove_all("_")
+
 # Generate df names from CSV file names
-  df_name <- paste(survey_numbers[i], sep = "_", "df", collapse = NULL)
+df_name <- paste0("S", study_number, "_", survey_numbers[i], "_df", collapse = NULL)
 
-  df_names <- c(df_names, df_name)
-  df_names <- as.vector(df_names, mode = "character")
-
-  df_list[[df_name]] <- read_csv(file_name, col_names = TRUE, na = "NA")
+df_names <- c(df_names, df_name)
+df_names <- as.vector(df_names, mode = "character")
+df_list[[df_name]] <- read_csv(file_name, col_names = TRUE, na = "NA")
   }
+
 
 # Rename columns ----
 # (LogV lets us skip over the first four column_names: Name, Date, Duration (minutes), Location.)
 
-i <- 0
-length(df_names)
 for (df_name in df_names)  {
-  i <- i + 1
-  column_names <- colnames(df_list[[df_name]])
-  logV <- str_detect(column_names, pattern = START %R% ANY_CHAR %R% DGT %R% optional(DGT))
-# Extracts a vector of question numbers. The expression allows for up to 999 questions in a Survey.  # This is done with START %R% ANY_CHAR %R% DGT, etc because column names could have other digits after those at the start.
-  raw_question_numbers_intermediate <- str_extract(column_names[logV], 
-        pattern = START %R% ANY_CHAR %R% DGT %R% optional(DGT) %R% optional(DGT))
-  raw_question_numbers <- str_extract(raw_question_numbers_intermediate, 
-                                      pattern = DGT %R% optional(DGT) %R% optional(DGT))
+  df_list[[df_name]] %<>% janitor::clean_names()
+ }
   
-# extract 3 letter code for question type from CSV file column header
-  question_type <- str_extract(column_names[logV], 
-                               pattern = "_" %R% char_class("A-Z") %R% 
-                                 char_class("A-Z") %R% char_class("A-Z"))
-  
-# Put Survey number at start of question number, to get complete number as per Ethica convention. 
-  question_numbers_intermediate <- str_c(survey_numbers[i], raw_question_numbers, sep = "_Q")
-  question_numbers <- str_c(question_numbers_intermediate, question_type)
-  
-  column_names[logV] <- question_numbers
-  colnames(df_list[[df_name]]) <- column_names
-   }
+  #   column_names <- colnames(df_list[[df_name]])
+#   logV <- str_detect(column_names, pattern = START %R% ANY_CHAR %R% DGT %R% optional(DGT))
+# # Extracts a vector of question numbers. The expression allows for up to 999 questions in a Survey.  # This is done with START %R% ANY_CHAR %R% DGT, etc because column names could have other digits after those at the start.
+#   raw_question_numbers_intermediate <- str_extract(column_names[logV], 
+#         pattern = START %R% ANY_CHAR %R% DGT %R% optional(DGT) %R% optional(DGT))
+#   raw_question_numbers <- str_extract(raw_question_numbers_intermediate, 
+#                                       pattern = DGT %R% optional(DGT) %R% optional(DGT))
+#   
+# # extract 3 letter code for question type from CSV file column header
+#   question_type <- str_extract(column_names[logV], 
+#                                pattern = "_" %R% char_class("A-Z") %R% 
+#                                  char_class("A-Z") %R% char_class("A-Z"))
+#   
+# # Put Survey number at start of question number, to get complete number as per Ethica convention. 
+#   question_numbers_intermediate <- str_c(survey_numbers[i], raw_question_numbers, sep = "_Q")
+#   question_numbers <- str_c(question_numbers_intermediate, question_type)
+#   
+#   column_names[logV] <- question_numbers
+#   colnames(df_list[[df_name]]) <- column_names
+#    }
+# 
+# # Clean single answer column data ----
+# for (df_name in df_names)  { 
+#   df_temp <- df_list[[df_name]] %>% mutate(across(where(contains("SAQ"))), number_extract_single)
+#   df_list[[df_name]] <- df_temp
+#   }
+# 
+# # Output from this chunk is df_list, a list of data frames with regularised variable names 
+# 
+# # Un-comment and add file path if a CSV file is required. NB Keep this function call at the end of the script.  
+# # write.csv(pathways_df, file = "C:/your/file/path/something/like/output_files/your_filename.csv")
 
-# Clean single answer column data ----
-for (df_name in df_names)  { 
-  df_temp <- df_list[[df_name]] %>% mutate(across(where(contains("SAQ"))), number_extract_single)
-  df_list[[df_name]] <- df_temp
-  }
+```
 
-# Un-comment and add file path if a CSV file is required. NB Keep this function call at the end of the script.  
-# write.csv(pathways_df, file = "C:/your/file/path/something/like/output_files/your_filename.csv")
+```{r test}
+str_extract(file_name, pattern = 
+                                 DGT %R% DGT %R% DGT %R% DGT %R% optional(DGT) %R%
+                                 '_' %R% DGT %R% DGT %R% DGT %R% DGT %R% optional(DGT) %R%
+                                 '_' %R% DGT %R% optional(DGT) %R% optional(DGT)) 
+```
+
+
+```{r Create: functions for joining data frames in df_list into one data frame}
+# This function will assume that all of the data frames in df_list have the same research participant IDs, or at least that they are meant to all have the same IDs (if not it's assumed to be a missing data problem)
+# Do I need different functions for one-off questionnaires vs EMAs? 
+
+
+
 
 ```
 

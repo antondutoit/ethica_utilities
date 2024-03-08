@@ -5,8 +5,14 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r load libraries, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
+
+# Load libraries ----
+library("rebus")
+# library("data.table")
+library("tidyverse")      # edit to include only the individual packages needed
+
 ```
 
 ## Functions for reading in Avicenna data files   
@@ -23,11 +29,6 @@ knitr::opts_chunk$set(echo = FALSE)
 #   - The files must be in CSV format. 
 # The script will output a dataframe for each CSV file; dataframes will be named Survey.Number_df. The dataframe will have clean numerical output for single-answer questions, and also will have all variables renamed as Survey.Number_Question.Number_Question.Type. 
 # If you want a CSV file outputted as well, you may un-comment the write.csv() call at the end of this file and add in the appropriate file path. 
-
-# Load libraries ----
-library("rebus")
-# library("data.table")
-library("tidyverse")
 
 # Define functions ----
 number_extract_single <- function(x) {
@@ -48,8 +49,7 @@ number_extract_multiple <- function(x) {
                          replacement = REF1 %R% REF2 %R% REF3 %R% REF4))
   }
 
-# Function to create column with count of NAs  
-      # redundant - can use a fun from naniar:: or maybe tidyr::, so replace 
+# Function to create column with count of NAs     # redundant - can use a fun from naniar:: or maybe tidyr::, so replace 
 countRowNAs <- function(x) { sum(is.na(x)) }
 
 count_NA <- function(data) {
@@ -69,9 +69,9 @@ i <- 0
 
 for (file_name in file_names) {
   i <- i + 1
-# Extract survey number; this expression will extract 3- to 5-digit survey numbers.
+# Extract survey number; this expression will extract 3- to 6-digit survey numbers.
   survey_numbers[i] <- str_extract(file_name, 
-                                 DGT %R% DGT %R% DGT %R% optional(DGT) %R% optional(DGT)) 
+                                 DGT %R% DGT %R% DGT %R% optional(DGT) %R% optional(DGT)  %R% optional(DGT)) 
 # Generate df names from CSV file names
   df_name <- paste(survey_numbers[i], sep = "_", "df", collapse = NULL)
 

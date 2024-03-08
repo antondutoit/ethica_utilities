@@ -1,10 +1,25 @@
-# Title: Avicenna/Ethica output cleaning and variable renaming
+---
+title: "Ethica_utilities"
+author: "A.T. du Toit"
+date: "`r Sys.Date()`"
+output: html_document
+---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Functions for reading in Avicenna data files   
+```{r Create: functions for reading in Avicenna data files}
+
+```
+
+## Functions for output cleaning and variable renaming    
+```{r Create: functions for output cleaning and variable renaming}
 # Frontmatter instructions and notes ---- 
-# This script processes CSV files as output from Ethica. xxx ....
-
+# This script processes CSV files as output from Ethica. 
 # To use this script with your data files: 
-#   - change the file path on line 57 to point at the folder with your data files. 
+#   - change the file path on line 60 to point at the folder with your data files. 
 #   - The files must be in CSV format. 
 # The script will output a dataframe for each CSV file; dataframes will be named Survey.Number_df. The dataframe will have clean numerical output for single-answer questions, and also will have all variables renamed as Survey.Number_Question.Number_Question.Type. 
 # If you want a CSV file outputted as well, you may un-comment the write.csv() call at the end of this file and add in the appropriate file path. 
@@ -40,7 +55,6 @@ countRowNAs <- function(x) { sum(is.na(x)) }
 count_NA <- function(data) {
   apply(data, 1, countRowNAs)
   }
-
 
 # Load and rename CSV files ----
 file_names <- Sys.glob("C:/your/file/path/something/like/files_to_process/*.csv")
@@ -104,4 +118,62 @@ for (df_name in df_names)  {
 # Un-comment and add file path if a CSV file is required. NB Keep this function call at the end of the script.  
 # write.csv(pathways_df, file = "C:/your/file/path/something/like/output_files/your_filename.csv")
 
+```
 
+## Functions for preprocessing multiple answer questions    
+```{r Create: functions for preprocessing multiple answer questions}
+# put NA in 1340_Q19_MAQ
+test_pathways_baselines_df <- test_pathways_baselines_df %>%
+    mutate_at(vars(`1340_Q19_MAQ`), ~ na_if(., ""))             # NB mutate_at() may be depreceated by nnow; replace
+
+# create multiple cols for 1340_Q19_MAQ. First use str_split to create a matrix with one col for each answer, then make into df.
+diagnosed_conditions_mx <- str_split(string = test_pathways_baselines_df$`1340_Q19_MAQ`, pattern = " & ", simplify = TRUE)
+diagnosed_conditions_df <- as.data.frame(diagnosed_conditions_mx)
+
+# Do I need a join to get the data in the right place? It seems not. 
+test_pathways_baselines_df <- bind_cols(test_pathways_baselines_df, diagnosed_conditions_df)
+
+# rename columns. May need more code if someone has more than 6 answers. But I don't; the most answers anyone had was 6.  
+test_pathways_baselines_df <- rename(test_pathways_baselines_df, `1340_Q19_MAQ_1` = V1, `1340_Q19_MAQ_2` = V2, `1340_Q19_MAQ_3` = V3, `1340_Q19_MAQ_4` = V4, `1340_Q19_MAQ_5` = V5, `1340_Q19_MAQ_6` = V6)
+
+# use str_replace to get numbers only, dump characters
+test_pathways_baselines_df <- test_pathways_baselines_df %>% 
+    mutate_at(vars(contains("1340_Q19_MAQ_")), number_extract_single)
+
+# create col with concatenation of all Q19_MAQ cols
+test_pathways_baselines_df <- test_pathways_baselines_df %>% unite(`1340_Q19_MAQ_concat`, `1340_Q19_MAQ_1`:`1340_Q19_MAQ_6`, sep = ",", remove = FALSE)
+
+# create binary cols for each concat answer
+pattern1 <- or1(c(",1,", ",1" %R% END, START %R% "1,"))
+pattern2 <- or1(c(",2,", ",2" %R% END, START %R% "2,"))
+pattern3 <- or1(c(",3,", ",3" %R% END, START %R% "3,"))
+pattern4 <- or1(c(",4,", ",4" %R% END, START %R% "4,"))
+pattern5 <- or1(c(",5,", ",5" %R% END, START %R% "5,"))
+pattern6 <- or1(c(",6,", ",6" %R% END, START %R% "6,"))
+pattern7 <- or1(c(",7,", ",7" %R% END, START %R% "7,"))
+pattern8 <- or1(c(",8,", ",8" %R% END, START %R% "8,"))
+pattern9 <- or1(c(",9,", ",9" %R% END, START %R% "9,"))
+pattern10 <- or1(c(",10,", ",10" %R% END, START %R% "10,"))
+
+
+test_pathways_baselines_df <- test_pathways_baselines_df %>% 
+    mutate(`1340_Q19_MAQ_option1` = ifelse(str_detect(string = `1340_Q19_MAQ_concat`, pattern = pattern1), TRUE, FALSE)) %>%
+    mutate(`1340_Q19_MAQ_option2` = ifelse(str_detect(string = `1340_Q19_MAQ_concat`, pattern = pattern2), TRUE, FALSE)) %>%
+    mutate(`1340_Q19_MAQ_option3` = ifelse(str_detect(string = `1340_Q19_MAQ_concat`, pattern = pattern3), TRUE, FALSE)) %>% 
+     mutate(`1340_Q19_MAQ_option4` = ifelse(str_detect(string = `1340_Q19_MAQ_concat`, pattern = pattern4), TRUE, FALSE)) %>% 
+     mutate(`1340_Q19_MAQ_option5` = ifelse(str_detect(string = `1340_Q19_MAQ_concat`, pattern = pattern5), TRUE, FALSE)) %>% 
+     mutate(`1340_Q19_MAQ_option6` = ifelse(str_detect(string = `1340_Q19_MAQ_concat`, pattern = pattern6), TRUE, FALSE)) %>% 
+    mutate(`1340_Q19_MAQ_option7` = ifelse(str_detect(string = `1340_Q19_MAQ_concat`, pattern = pattern7), TRUE, FALSE)) %>% 
+    mutate(`1340_Q19_MAQ_option8` = ifelse(str_detect(string = `1340_Q19_MAQ_concat`, pattern = pattern8), TRUE, FALSE)) %>% 
+    mutate(`1340_Q19_MAQ_option9` = ifelse(str_detect(string = `1340_Q19_MAQ_concat`, pattern = pattern9), TRUE, FALSE)) %>% 
+    mutate(`1340_Q19_MAQ_option10` = ifelse(str_detect(string = `1340_Q19_MAQ_concat`, pattern = pattern10), TRUE, FALSE))
+
+test_pathways_baselines_df <- test_pathways_baselines_df %>% 
+    mutate_at(vars(`1340_Q19_MAQ_1`:`1340_Q19_MAQ_6`), ~ factor(., levels = c(1:10), labels = c("Heart disease", "Other heart condition", "Blood clot thrombosis", "Asthma", "Hay fever", "Depression", "Anxiety", "Thyroid problems", "None of these", "Other"), exclude = NA))
+
+```
+
+```{r Deprecated}
+
+
+```

@@ -65,7 +65,7 @@ number_extract_multiple <- function(x) {
                          replacement = REF1 %R% REF2 %R% REF3 %R% REF4))
   }
 
-# Function to create column with count of NAs     # redundant - can use a fun from naniar:: or maybe tidyr::, so replace 
+# Function to create column with count of NAs     # redundant- can use a fun from naniar:: or tidyr::, so replace 
 countRowNAs <- function(x) { sum(is.na(x)) }
 
 count_NA <- function(data) {
@@ -104,9 +104,8 @@ df_name <- paste0("S", study_number, "_", survey_numbers[i], "_df", collapse = N
 
 df_names <- c(df_names, df_name)
 df_names <- as.vector(df_names, mode = "character")
-df_list[[df_name]] <- read_csv(file_name, col_names = TRUE, na = "NA")
+df_list[[df_name]] <- read_csv(file_name, col_names = TRUE, na = c("", "NA"))
   }
-
 
 # Rename columns ----
 # (LogV lets us skip over the first four column_names: Name, Date, Duration (minutes), Location.)
@@ -114,28 +113,85 @@ df_list[[df_name]] <- read_csv(file_name, col_names = TRUE, na = "NA")
 for (df_name in df_names)  {
   df_list[[df_name]] %<>% janitor::clean_names()
  }
-  
-  #   column_names <- colnames(df_list[[df_name]])
-#   logV <- str_detect(column_names, pattern = START %R% ANY_CHAR %R% DGT %R% optional(DGT))
-# # Extracts a vector of question numbers. The expression allows for up to 999 questions in a Survey.  # This is done with START %R% ANY_CHAR %R% DGT, etc because column names could have other digits after those at the start.
-#   raw_question_numbers_intermediate <- str_extract(column_names[logV], 
-#         pattern = START %R% ANY_CHAR %R% DGT %R% optional(DGT) %R% optional(DGT))
-#   raw_question_numbers <- str_extract(raw_question_numbers_intermediate, 
-#                                       pattern = DGT %R% optional(DGT) %R% optional(DGT))
-#   
-# # extract 3 letter code for question type from CSV file column header
-#   question_type <- str_extract(column_names[logV], 
-#                                pattern = "_" %R% char_class("A-Z") %R% 
-#                                  char_class("A-Z") %R% char_class("A-Z"))
-#   
-# # Put Survey number at start of question number, to get complete number as per Ethica convention. 
-#   question_numbers_intermediate <- str_c(survey_numbers[i], raw_question_numbers, sep = "_Q")
-#   question_numbers <- str_c(question_numbers_intermediate, question_type)
-#   
-#   column_names[logV] <- question_numbers
-#   colnames(df_list[[df_name]]) <- column_names
-#    }
-# 
+
+```
+
+```{r }
+# create function to extract numerical data from 'metadata' column 
+pattern1 <- "\\{\"answer_id\":" %R% capture(DGT) %R% capture(optional(DGT)) %R% one_or_more(printable())
+
+pattern1.1 <-  "\\{\"answer_id\":null,\"answer_content\":\"" %R% capture(DGT) %R% capture(optional(DGT)) %R% one_or_more(printable())
+
+# rewrite pattern 1 for VAS and other question types 
+pattern1.2 <- group(or1(c(pattern1.1, pattern1), capture = TRUE))
+
+# test
+x4 <- "{\"answer_id\":null,\"answer_content\":\"7\",\"answer_location\":{\"latitude\":null,\"longitude\":null,\"accuracy\":null,\"speed\":null},\"answer_response_time\":\"2024-02-19T03:35:15.692000+00:00\",\"answer_question_content\":\"In general how much of the time do you feel you are making progress towards accomplishing your goals?\\n(If your answer is zero you still have to move the slider back and forth so it knows you are not skipping the question.)\\n0 = Never\\n10 = Always\",\"answer_media_interactions\":[],\"unanswered_status_id\":null}"
+
+str_detect(x4, pattern1.2)  #   
+
+x5 <- "{\"answer_id\":2,\"answer_content\":\"A little of the time\",\"answer_location\":{\"latitude\":null,\"longitude\":null,\"accuracy\":null,\"speed\":null},\"answer_response_time\":\"2024-02-19T03:03:37.484000+00:00\",\"answer_question_content\":\"In the last four weeks about how often ...\\n\\n1. Did you feel tired out for no good reason?\",\"answer_media_interactions\":[],\"unanswered_status_id\":null}"
+
+str_detect(x5, pattern1.2)  #  
+
+
+number_extract_single2 <- function(x) {
+  as.numeric(str_replace(x, pattern = pattern1.2, replacement = REF1))
+  }
+
+
+# detect answer columns and rewrite content 
+for (df_name in df_names)  {
+  df_list[[df_name]] %<>% mutate(across(contains("_metadata_"), number_extract_single2))
+ }
+
+```
+
+```{r Fix:    detect and remove columns with answer labels}
+pattern2 <- "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_question_" %R% "[0-9]"
+
+for (df_name in df_names)  {
+  df_list[[df_name]] %<>% select(!matches(pattern2))
+ }
+
+```
+
+
+
+
+```{r Fix:    rename answer columns}
+pattern3.1 <- "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_metadata_question_" %R% capture(DGT) %R% 
+  repeated(capture(optional(DGT)),0,2) %R% "_of_survey_" %R% (DGT) %R%
+  repeated(optional(DGT),0,5)
+
+i <- 0
+
+for (df_name in df_names)  {
+    i <- i + 1
+
+column_names <- colnames(df_list[[df_name]])
+logV <- str_detect(column_names, pattern = pattern3)
+
+raw_question_numbers_int <- str_extract(column_names[logV], pattern = pattern3.1)
+raw_question_numbers <- str_extract(raw_question_numbers_int,
+                                      pattern = DGT %R% optional(DGT) %R% optional(DGT))
+
+# extract 3 letter code for question type
+pattern4 <- "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_metadata_" 
+
+question_type_int <- str_extract(column_names[logV], pattern = pattern4) 
+question_type <- str_remove(question_type_int, "_metadata_") %>% str_extract(repeated("[a-z]", lo = 3, hi = 3))
+
+question_numbers <- str_c("q", raw_question_numbers, "_", question_type, sep = "")
+
+column_names[logV] <- question_numbers
+colnames(df_list[[df_name]]) <- column_names
+  }
+
+```
+
+
+```{r }
 # # Clean single answer column data ----
 # for (df_name in df_names)  { 
 #   df_temp <- df_list[[df_name]] %>% mutate(across(where(contains("SAQ"))), number_extract_single)
@@ -143,11 +199,9 @@ for (df_name in df_names)  {
 #   }
 # 
 # # Output from this chunk is df_list, a list of data frames with regularised variable names 
-# 
-# # Un-comment and add file path if a CSV file is required. NB Keep this function call at the end of the script.  
-# # write.csv(pathways_df, file = "C:/your/file/path/something/like/output_files/your_filename.csv")
 
 ```
+
 
 ```{r test}
 str_extract(file_name, pattern = 
@@ -157,11 +211,21 @@ str_extract(file_name, pattern =
 ```
 
 
+```{r Create: extract data frames from list}
+# i <- 0
+# 
+# for (df_name in df_names) {
+#   i <- i + 1
+# 
+#     df_name[i] <- df_list[i]
+#   
+# } 
+
+```
+
 ```{r Create: functions for joining data frames in df_list into one data frame}
 # This function will assume that all of the data frames in df_list have the same research participant IDs, or at least that they are meant to all have the same IDs (if not it's assumed to be a missing data problem)
 # Do I need different functions for one-off questionnaires vs EMAs? 
-
-
 
 
 ```
@@ -219,7 +283,61 @@ test_pathways_baselines_df <- test_pathways_baselines_df %>%
 
 ```
 
+```{r Create: write CSV files if required}
+# # Un-comment and add file path if a CSV file is required. NB Keep this function call at the end of the script.  
+# # write.csv(pathways_df, file = "C:/your/file/path/something/like/output_files/your_filename.csv")   
+
+```
+
+
 ```{r Deprecated}
+# # testing
+# x1 <- (df_list[[1]][[1,3]])
+# number_extract_single2((df_list[[1]][[1,3]]))
+
+# # more testing
+# str_detect(x1, pattern = "{\"answer_id\":" %R% capture(DGT))  # TRUE 
+# str_detect(x1, pattern = "\"answer_id\":" %R% capture(DGT) %R% one_or_more(printable()))  # TRUE
+
+# # testing
+# x1 <- "x1_saq_question_1_of_survey_1197"
+# str_detect(x1, pattern2)
+# str_extract(x1, pattern2)
+
+# x2 <- "x1_saq_metadata_question_1_of_survey_1197"  
+# str_detect(x2, pattern2)  # FALSE - good 
+
+# target column name: S3735_s20908_q1 OR s20908_q1
+# x2 <- "x1_saq_metadata_question_1_of_survey_1197"  
+# pattern3 <- "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_metadata_question_" %R% capture(DGT) %R% 
+#   repeated(capture(optional(DGT)),0,2) %R% "_of_survey_" %R% capture(DGT) %R%
+#   repeated(capture(optional(DGT)),0,5)
 
 
+```
+
+```{r code straight from pw_new2.10}
+# # Rename columns ----------------------------------------------------------
+# i <- 0
+# 
+# for (df_name in df_names)  {
+#     i <- i + 1
+#     column_names <- colnames(df_list[[df_name]])
+#     logV <- str_detect(column_names, pattern = START %R% ANY_CHAR %R% DGT %R% optional(DGT))
+# 
+#     raw_question_numbers_intermediate <- str_extract(column_names[logV], pattern = START %R% ANY_CHAR %R% DGT %R% optional(DGT) %R% optional(DGT))
+#     raw_question_numbers <- str_extract(raw_question_numbers_intermediate, pattern = DGT %R% optional(DGT) %R% optional(DGT))
+#     
+#     question_type <- str_extract(column_names[logV], pattern = "_" %R% char_class("A-Z") %R% char_class("A-Z") %R% char_class("A-Z"))
+#     
+#     question_numbers_intermediate <- str_c(survey_numbers[i], raw_question_numbers, sep = "_Q")
+#     
+#     question_numbers <- str_c(question_numbers_intermediate, question_type)
+#     
+#     column_names[logV] <- question_numbers
+#     
+#     colnames(df_list[[df_name]]) <- column_names
+# }
+# 
+# # ******************************   end of Rename columns   *********************************   
 ```

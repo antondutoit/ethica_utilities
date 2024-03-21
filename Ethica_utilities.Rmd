@@ -6,11 +6,14 @@ output: html_document
 ---
 
 ```{r To do}
+# [IP] Function to join data frames into one 
+# [IP] Clarify survey and activity numbers with Amin or Mohammad and alter naming conventions accordingly 
+# use repeated() in line 82f. 
+# add activity or survey numbers at the start of column names 
+
+# DONE 
 # Fix naming of MAQ questions 
 # Function to extract data frames from list 
-# Function to join data frames into one 
-# Clarify survey and activity numbers with Amin or Mohammad and alter naming conventions accordingly
-# use repeated() in line 82f. 
 # 
 
 ```
@@ -181,6 +184,17 @@ list2env(df_list, .GlobalEnv)
 
 
 
+```{r Create: functions for joining data frames in df_list into *one* data frame}
+# This function will assume that all of the data frames in df_list have the same research participant IDs, or at least that they are meant to all have the same IDs (if not it's assumed to be a missing data problem)
+# Do I need different functions for one-off questionnaires vs EMAs? 
+
+# first approiamtion
+combined_df <- bind_rows(S3735_20908_df, S3735_20909_df, S3735_20910_df, .id = "id")
+# need to add survey or activity no.s to the start of column names for this to work properly, else it will confuse same-named cols from different data frames 
+
+```
+
+
 
 ************** STOP HERE ************
 
@@ -195,12 +209,6 @@ knitr::knit_exit()
 
 ```
 
-
-```{r Create: functions for joining data frames in df_list into *one* data frame}
-# This function will assume that all of the data frames in df_list have the same research participant IDs, or at least that they are meant to all have the same IDs (if not it's assumed to be a missing data problem)
-# Do I need different functions for one-off questionnaires vs EMAs? 
-
-```
 
 ## Functions for preprocessing multiple answer questions    
 ```{r Create: functions for preprocessing multiple answer questions}

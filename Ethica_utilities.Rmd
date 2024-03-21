@@ -129,42 +129,6 @@ for (df_name in df_names)  {
 ```
 
 
-```{r Test:    try to rewrite col name regex to include MAQ questions, eval=FALSE}
-# current regex
-pattern3.1 <- "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_metadata_question_" %R% capture(DGT) %R%
-  repeated(capture(optional(DGT)),0,2) %R% "_of_survey_" %R% (DGT) %R%
-  repeated(optional(DGT),0,5)
-
-# sample non-MAQ and MAQ col names
-nonmaq <- "x2_saq_metadata_question_2_of_survey_1197"
-   maq <- "x10_maq_2_any_meat"
-
-str_detect(nonmaq, pattern3.1)    # TRUE
-str_detect(maq, pattern3.1)       # FALSE
-
-# new regex for MAQ only
-pattern3.2 <- START %R% "x" %R% capture(repeated(DGT,1,2)) %R% "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_" %R% capture(repeated(DGT,1,2)) %R% one_or_more(printable())
-
-str_detect(nonmaq, pattern3.2)    # FALSE
-str_detect(maq, pattern3.2)       # TRUE
-
-str_replace(nonmaq, pattern = pattern3.2, replacement = REF1 %R% "_" %R% REF2)
-                                                        # "x2_saq_metadata_question_2_of_survey_1197"
-str_replace(maq, pattern = pattern3.2, replacement = REF1 %R% "_" %R% REF2)      # "10_2"
-
-# attempt regex for MAQ _and_ SAQ, VAS, etc
-pattern3.3 <- START %R% "x" %R% capture(repeated(DGT,0,2)) %R% "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_" %R% repeated(not_dgt(), lo = 0, hi = 18) %R% capture(repeated(DGT,0,2)) %R% one_or_more(printable())
-
-str_detect(nonmaq, pattern3.3)    # TRUE
-str_detect(maq, pattern3.3)       # TRUE
-
-str_replace(nonmaq, pattern3.3, replacement = REF1 %R% "_" %R% REF2)        # s/be "2_2"   # "2_2"
-str_replace(maq, pattern = pattern3.3, replacement = REF1 %R% "_" %R% REF2) # s/be "10_2"  # "10_2"
-
-
-```
-
-
 ```{r Fix:    rename answer columns}
 # pattern3.1 <- "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_metadata_question_" %R% capture(DGT) %R% #   repeated(capture(optional(DGT)),0,2) %R% "_of_survey_" %R% (DGT) %R%
 #   repeated(optional(DGT),0,5)
@@ -210,32 +174,12 @@ colnames(df_list[[df_name]]) <- column_names
 ```
 
 
-```{r checks of length for above chunk, eval=T}
-length(column_names)
-length(logV)
-length(raw_question_numbers_int)
-length(raw_question_numbers)
-length(question_type_int)
-length(question_type)
-length(maqV)
-length(maq_option_no)
-length(question_numbers)
+```{r Create: extract data frames from list}
+list2env(df_list, .GlobalEnv)
 
 ```
 
 
-```{r checks for above chunk, eval=T}
-# inspect intermediate objects
-column_names # not useful as overwritten  
-logV
-raw_question_numbers_int
-raw_question_numbers
-question_type_int
-question_type
-maqV
-maq_option_no
-question_numbers   
-```
 
 
 ************** STOP HERE ************
@@ -246,19 +190,6 @@ knitr::knit_exit()
 ```
 
 
-
-```{r Create: extract data frames from list}
-# i <- 0
-# 
-# for (df_name in df_names) {
-#   i <- i + 1
-# 
-#     df_name[i] <- df_list[i]
-#   
-# } 
-
-```
-
 ```{r tidy up 1}
 # rm()
 
@@ -268,7 +199,6 @@ knitr::knit_exit()
 ```{r Create: functions for joining data frames in df_list into *one* data frame}
 # This function will assume that all of the data frames in df_list have the same research participant IDs, or at least that they are meant to all have the same IDs (if not it's assumed to be a missing data problem)
 # Do I need different functions for one-off questionnaires vs EMAs? 
-
 
 ```
 
@@ -423,29 +353,62 @@ knitr::knit_exit()
 
 ```
 
+```{r Test:    try to rewrite col name regex to include MAQ questions, eval=FALSE}
+# # current regex
+# pattern3.1 <- "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_metadata_question_" %R% capture(DGT) %R%
+#   repeated(capture(optional(DGT)),0,2) %R% "_of_survey_" %R% (DGT) %R%
+#   repeated(optional(DGT),0,5)
+# 
+# # sample non-MAQ and MAQ col names
+# nonmaq <- "x2_saq_metadata_question_2_of_survey_1197"
+#    maq <- "x10_maq_2_any_meat"
+# 
+# str_detect(nonmaq, pattern3.1)    # TRUE
+# str_detect(maq, pattern3.1)       # FALSE
+# 
+# # new regex for MAQ only
+# pattern3.2 <- START %R% "x" %R% capture(repeated(DGT,1,2)) %R% "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_" %R% capture(repeated(DGT,1,2)) %R% one_or_more(printable())
+# 
+# str_detect(nonmaq, pattern3.2)    # FALSE
+# str_detect(maq, pattern3.2)       # TRUE
+# 
+# str_replace(nonmaq, pattern = pattern3.2, replacement = REF1 %R% "_" %R% REF2)
+#                                                         # "x2_saq_metadata_question_2_of_survey_1197"
+# str_replace(maq, pattern = pattern3.2, replacement = REF1 %R% "_" %R% REF2)      # "10_2"
+# 
+# # attempt regex for MAQ _and_ SAQ, VAS, etc
+# pattern3.3 <- START %R% "x" %R% capture(repeated(DGT,0,2)) %R% "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_" %R% repeated(not_dgt(), lo = 0, hi = 18) %R% capture(repeated(DGT,0,2)) %R% one_or_more(printable())
+# 
+# str_detect(nonmaq, pattern3.3)    # TRUE
+# str_detect(maq, pattern3.3)       # TRUE
+# 
+# str_replace(nonmaq, pattern3.3, replacement = REF1 %R% "_" %R% REF2)        # s/be "2_2"   # "2_2"
+# str_replace(maq, pattern = pattern3.3, replacement = REF1 %R% "_" %R% REF2) # s/be "10_2"  # "10_2"
 
-```{r code straight from pw_new2.10}
-# # Rename columns ----------------------------------------------------------
-# i <- 0
-# 
-# for (df_name in df_names)  {
-#     i <- i + 1
-#     column_names <- colnames(df_list[[df_name]])
-#     logV <- str_detect(column_names, pattern = START %R% ANY_CHAR %R% DGT %R% optional(DGT))
-# 
-#     raw_question_numbers_intermediate <- str_extract(column_names[logV], pattern = START %R% ANY_CHAR %R% DGT %R% optional(DGT) %R% optional(DGT))
-#     raw_question_numbers <- str_extract(raw_question_numbers_intermediate, pattern = DGT %R% optional(DGT) %R% optional(DGT))
-#     
-#     question_type <- str_extract(column_names[logV], pattern = "_" %R% char_class("A-Z") %R% char_class("A-Z") %R% char_class("A-Z"))
-#     
-#     question_numbers_intermediate <- str_c(survey_numbers[i], raw_question_numbers, sep = "_Q")
-#     
-#     question_numbers <- str_c(question_numbers_intermediate, question_type)
-#     
-#     column_names[logV] <- question_numbers
-#     
-#     colnames(df_list[[df_name]]) <- column_names
-# }
-# 
-# # ******************************   end of Rename columns   *********************************   
+```
+
+```{r checks of length for rename answer columns chunk, eval=FALSE}
+# length(column_names)
+# length(logV)
+# length(raw_question_numbers_int)
+# length(raw_question_numbers)
+# length(question_type_int)
+# length(question_type)
+# length(maqV)
+# length(maq_option_no)
+# length(question_numbers)
+
+```
+
+```{r checks for rename answer columns chunk, eval=FALSE}
+# # inspect intermediate objects
+# column_names # not useful as overwritten  
+# logV
+# raw_question_numbers_int
+# raw_question_numbers
+# question_type_int
+# question_type
+# maqV
+# maq_option_no
+# question_numbers   
 ```

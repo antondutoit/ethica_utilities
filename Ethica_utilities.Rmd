@@ -6,16 +6,20 @@ output: html_document
 ---
 
 ```{r To do}
-# [IP] Function to join data frames into one 
 # [IP] Clarify survey and activity numbers with Amin or Mohammad and alter naming conventions accordingly 
-# use repeated() in line 82f. 
-# add activity or survey numbers at the start of column names 
-# [ ] Split this into a source file with funs and patterns and a workflow file (ie the remainder of this one)
-# [ ] make generic col names shorter 
+ 
+# [  ] Split this into a source file with funs and patterns and a workflow file (ie the remainder of this one)
+# [  ] ? make generic col names shorter 
+# [  ] move all patterns into one initial block and annotate what they are used for 
 
 # DONE 
-# Fix naming of MAQ questions 
-# Function to extract data frames from list 
+
+# [x ] add activity or survey numbers at the start of column names 
+# [x ] use repeated() in line 82f. 
+# [x ] Function to join data frames into one 
+
+# [x ] Fix naming of MAQ questions 
+# [x ] Function to extract data frames from list 
 # 
 
 ```
@@ -147,6 +151,8 @@ for (df_name in df_names)  {
 
 column_names <- colnames(df_list[[df_name]])
 logV <- str_detect(column_names, pattern = pattern3.3)
+activity_no <- str_extract(df_name, pattern = "_" %R% repeated(DGT, 5, 6) %R% "_df" ) %>%
+  str_remove_all("_") %>% str_remove("df")
 
 raw_question_numbers_int <- str_extract(column_names[logV], pattern = pattern3.3)
 raw_question_numbers <- str_extract(raw_question_numbers_int, pattern = START %R% "x" %R% DGT %R% optional(DGT))
@@ -164,11 +170,11 @@ maqV <- str_detect(column_names[logV], pattern = "_maq_")
 
 if (sum(maqV)>0) {
   maq_option_no <- str_extract(column_names[logV], pattern =  "_maq_" %R% DGT %R% optional(DGT)) %>% str_remove("_maq") %>% str_replace_na(replacement = "NA") %>% str_replace("NA", "") 
-question_numbers <- str_c("q", raw_question_numbers, "_", question_type, maq_option_no, sep = "")  
+question_numbers <- str_c("a", activity_no, "_", "q", raw_question_numbers, "_", question_type, maq_option_no, sep = "")  
   }
 
 if (sum(maqV)==0) {
-question_numbers <- str_c("q", raw_question_numbers, "_", question_type, sep = "")  
+question_numbers <- str_c("a", activity_no, "_", "q", raw_question_numbers, "_", question_type, sep = "")  
   }
 
 column_names[logV] <- question_numbers

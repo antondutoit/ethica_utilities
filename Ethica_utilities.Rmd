@@ -10,6 +10,7 @@ output: html_document
 # Function to extract data frames from list 
 # Function to join data frames into one 
 # Clarify survey and activity numbers with Amin or Mohammad and alter naming conventions accordingly
+# use repeated() in line 82f. 
 # 
 
 ```
@@ -94,14 +95,11 @@ df_list[[df_name]] <- read_csv(file_name, col_names = TRUE, na = c("", "NA"))
 
 ```
 
-```{r Fix:    Clean column names}
+```{r Fix:    Clean column names, detect and remove columns with answer labels}
 for (df_name in df_names)  {
   df_list[[df_name]] %<>% janitor::clean_names()
   }
 
-```
-
-```{r Fix:    detect and remove columns with answer labels}
 pattern2 <- "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_question_" %R% "[0-9]"
 
 for (df_name in df_names)  {
@@ -112,10 +110,12 @@ for (df_name in df_names)  {
 
 ```{r Fix:    extract numeric answer codes and rewrite answer columns}
 # write pattern for extracting numeric answer codes 
-pattern1.3 <- "\\{\"answer_id" %R% repeated(not_dgt(), lo = 2, hi = 28) %R% capture(DGT) %R% capture(optional(DGT)) %R% one_or_more(printable())
+# pattern1.3 <- "\\{\"answer_id" %R% repeated(not_dgt(), lo = 2, hi = 28) %R% capture(DGT) %R% capture(optional(DGT)) %R% one_or_more(printable())
+
+pattern3.3 <- START %R% "x" %R% capture(repeated(DGT,0,2)) %R% "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_" %R% repeated(not_dgt(), lo = 0, hi = 18) %R% capture(repeated(DGT,0,2)) %R% one_or_more(printable())
 
 number_extract_single2 <- function(x) {
-  as.numeric(str_replace(x, pattern = pattern1.3, replacement = REF1))
+  as.numeric(str_replace(x, pattern = pattern3.3, replacement = REF1))
   }
 
 # detect 'metadata' answer columns and rewrite content 
@@ -157,6 +157,8 @@ colnames(df_list[[df_name]]) <- column_names
 ```
 
 
+
+
 ************** STOP HERE ************
 
 
@@ -171,6 +173,12 @@ colnames(df_list[[df_name]]) <- column_names
 # } 
 
 ```
+
+```{r tidy up 1}
+rm()
+
+```
+
 
 ```{r Create: functions for joining data frames in df_list into *one* data frame}
 # This function will assume that all of the data frames in df_list have the same research participant IDs, or at least that they are meant to all have the same IDs (if not it's assumed to be a missing data problem)
@@ -321,12 +329,46 @@ test_pathways_baselines_df <- test_pathways_baselines_df %>%
 ```
 
 ```{r Create: functions for output cleaning}
-# Function to create column with count of NAs     # redundant- can use a fun from naniar:: or tidyr::, so replace 
-countRowNAs <- function(x) { sum(is.na(x)) }
+# # Function to create column with count of NAs     # redundant- can use a fun from naniar:: or tidyr::, so replace 
+# countRowNAs <- function(x) { sum(is.na(x)) }
+# 
+# count_NA <- function(data) {
+#   apply(data, 1, countRowNAs)
+# }     
 
-count_NA <- function(data) {
-  apply(data, 1, countRowNAs)
-}     
+```
+
+```{r Test:    try to rewrite col name regex to include MAQ questions}
+# # current regex 
+# pattern3.1 <- "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_metadata_question_" %R% capture(DGT) %R% 
+#   repeated(capture(optional(DGT)),0,2) %R% "_of_survey_" %R% (DGT) %R%
+#   repeated(optional(DGT),0,5)
+# 
+# # sample non-MAQ and MAQ col names
+# nonmaq <- "x2_saq_metadata_question_2_of_survey_1197"
+#    maq <- "x10_maq_2_any_meat" 
+# 
+# str_detect(nonmaq, pattern3.1)    # TRUE 
+# str_detect(maq, pattern3.1)       # FALSE  
+# 
+# # new regex for MAQ only
+# pattern3.2 <- START %R% "x" %R% capture(repeated(DGT,1,2)) %R% "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_" %R% capture(repeated(DGT,1,2)) %R% one_or_more(printable())
+# 
+# str_detect(nonmaq, pattern3.2)    # FALSE
+# str_detect(maq, pattern3.2)       # TRUE
+# 
+# str_replace(nonmaq, pattern = pattern3.2, replacement = REF1 %R% "_" %R% REF2)   
+#                                                         # "x2_saq_metadata_question_2_of_survey_1197"
+# str_replace(maq, pattern = pattern3.2, replacement = REF1 %R% "_" %R% REF2)      # "10_2"
+# 
+# # attempt regex for MAQ _and_ SAQ, VAS, etc
+# pattern3.3 <- START %R% "x" %R% capture(repeated(DGT,0,2)) %R% "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_" %R% repeated(not_dgt(), lo = 0, hi = 18) %R% capture(repeated(DGT,0,2)) %R% one_or_more(printable())
+# 
+# str_detect(nonmaq, pattern3.3)    # TRUE
+# str_detect(maq, pattern3.3)       # TRUE
+# 
+# str_replace(nonmaq, pattern3.3, replacement = REF1 %R% "_" %R% REF2)        # s/be "2_2"   # "2_2"
+# str_replace(maq, pattern = pattern3.3, replacement = REF1 %R% "_" %R% REF2) # s/be "10_2"  # "10_2"
 
 ```
 

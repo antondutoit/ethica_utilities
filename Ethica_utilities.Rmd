@@ -10,7 +10,9 @@ output: html_document
  
 # [  ] Split this into a source file with funs and patterns and a workflow file (ie the remainder of this one)
 # [  ] ? make generic col names shorter 
-# [  ] move all patterns into one initial block and annotate what they are used for 
+# [ip] move all patterns into one initial block and annotate what they are used for 
+# [ip] change variable names to agree with Avicenna's new naming scheme (Study / Activity / Survey) 
+# [  ] use vectors in str_remove() instead of repeated calls 
 
 # DONE 
 
@@ -20,7 +22,6 @@ output: html_document
 
 # [x ] Fix naming of MAQ questions 
 # [x ] Function to extract data frames from list 
-# 
 
 ```
 
@@ -58,6 +59,14 @@ data_path <- "C:/Users/atdut/OneDrive - Western Sydney University/PhD/Rwork/ethi
 
 ```
 
+```{r Create: patterns for regex - will go into source file}
+pattern1 <- "activity_response_" %R% repeated(DGT, lo = 4, hi = 5) # NB this extracts the *Study* no., not the activity no.
+
+
+
+```
+
+
 ## Read in test data files   
 ```{r Create: read in test data files}
 
@@ -76,28 +85,28 @@ file_names <- Sys.glob(paste0(data_path, "/*.csv"))
 
 # Set up empty objects 
 df_names <- data.frame()
-survey_numbers <- vector()
+activity_numbers <- vector()
 df_list <- list()
 
-# extract study number 
-pattern2 <- "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_question_" %R% "[0-9]"
-
-study_number <- str_extract(file_names[1], pattern = 
-                                 "activity_response_" %R% repeated(DGT, lo = 4, hi = 5) )
+# extract study number
+study_number <- str_extract(file_names[1], pattern = pattern1)
 study_number <- study_number %>% str_remove_all("activity_response_")
 
-
-# Create data frame names from file_names and read in data from CSV files ----
+# Create data frame names from file_names and read in data from CSV files -----
 i <- 0
 
 for (file_name in file_names) {
   i <- i + 1
 # Extract survey number; this expression will extract 3- to 6-digit survey numbers.
-survey_numbers[i] <- str_extract(file_name, pattern = "_" %R% repeated(DGT, 5, 6) %R% "_")
-survey_numbers[i] <- survey_numbers[i] %>% str_remove_all("_")
+  
+  str_extract(file_name, pattern = "activity_response_" %R% repeated(DGT,4,5) %R% "_" %R% repeated(DGT,5,6) )
+  str_remove_all("activity_response_" %R% repeated(DGT,4,5) %R% "_")
+  
+activity_numbers[i] <- str_extract(file_name, pattern = "_" %R% repeated(DGT, 5, 6) %R% "_")
+activity_numbers[i] <- activity_numbers[i] %>% str_remove_all("_")
 
 # Generate df names from CSV file names
-df_name <- paste0("S", study_number, "_", survey_numbers[i], "_df", collapse = NULL)
+df_name <- paste0("S", study_number, "_", activity_numbers[i], "_df", collapse = NULL)
 
 df_names <- c(df_names, df_name)
 df_names <- as.vector(df_names, mode = "character")
@@ -188,7 +197,6 @@ colnames(df_list[[df_name]]) <- column_names
 list2env(df_list, .GlobalEnv)
 
 ```
-
 
 ```{r Create: functions for joining data frames in df_list into *one* data frame}
 # This function will assume that all of the data frames in df_list have the same research participant IDs, or at least that they are meant to all have the same IDs (if not it's assumed to be a missing data problem)

@@ -6,16 +6,21 @@ output: html_document
 ---
 
 ```{r To do}
-# [IP] Clarify survey and activity numbers with Amin or Mohammad and alter naming conventions accordingly 
- 
+# [ip] Clarify survey and activity numbers with Amin or Mohammad and alter naming conventions accordingly 
+# [ip] change variable names to agree with Avicenna's new naming scheme (Study / Activity / Survey) 
+
 # [  ] Split this into a source file with funs and patterns and a workflow file (ie the remainder of this one)
 # [  ] ? make generic col names shorter 
-# [ip] move all patterns into one initial block and annotate what they are used for 
-# [ip] change variable names to agree with Avicenna's new naming scheme (Study / Activity / Survey) 
-# [  ] use vectors in str_remove() instead of repeated calls 
+# [  ] reorganise combined_df by adding a select() call or similar. Perhaps save vectors of variable names earlier on and use them inside the select() call. Put everything() at the end to ensure _all_ variables are included. 
+# [  ] write function(s) to format answer columns as the correct type (numeric, character, etc)
+
+# [ip] insert "opt" in from of MAQ option col option numbers 
 
 # DONE 
-
+# [x ] where possible use vectors in str_remove() instead of repeated calls 
+# [x ] change "id" in combined_df to "obs_id"
+# [x ] move all patterns into one initial block and annotate what they are used for 
+#   [x ] fix pattern numbering
 # [x ] add activity or survey numbers at the start of column names 
 # [x ] use repeated() in line 82f. 
 # [x ] Function to join data frames into one 
@@ -59,12 +64,50 @@ data_path <- "C:/Users/atdut/OneDrive - Western Sydney University/PhD/Rwork/ethi
 
 ```
 
-```{r Create: patterns for regex - will go into source file}
-pattern1 <- "activity_response_" %R% repeated(DGT, lo = 4, hi = 5) # NB this extracts the *Study* no., not the activity no.
+```{r Create: constants and patterns for regex - will go into source file}
+q_type_exts <- c("saq", "maq", "num", "vas", "fft")
+
+# extract Study number  
+pattern1   <- "activity_response_" %R% repeated(DGT,4,5)          # extracts the *Study* no., not the activity no.
+pattern1.1 <- "activity_response_" %R% repeated(DGT,4,5) %R% "_"  # used to remove unwanted chars from Study no.
+
+# used to detect and remove unwanted columns
+pattern2 <- "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_question_" %R% "[0-9]"  
+pattern2.1 <- DGT %R% optional(DGT) %R% "_maq_metadata_question_"
+
+# extract activity number; this expression will extract 5- to 6-digit activity numbers.
+pattern3 <- "activity_response_" %R% repeated(DGT,4,5) %R% "_" %R% repeated(DGT,5,6) %R% "_"  # extracts activity no.(+)
+pattern3.1 <- "activity_response_" %R% repeated(DGT,4,5) %R% "_"                              # to remove unwanted chars
+
+# extract numeric answer code to rewrite answer columns
+pattern4 <- "\\{\"answer_id" %R% repeated(not_dgt(), lo = 2, hi = 28) %R% capture(DGT) %R% capture(optional(DGT)) %R% one_or_more(printable())
+
+# extract question numbers  
+pattern5 <- START %R% "x" %R% capture(repeated(DGT,0,2)) %R% "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_" %R% repeated(not_dgt(), lo = 0, hi = 18) %R% capture(repeated(DGT,0,2)) %R% one_or_more(printable())
+pattern5.1 <- START %R% "x" %R% DGT %R% optional(DGT)   # 
+
+# used to extract activity no. from df_name
+pattern6 <- "_" %R% repeated(DGT, 5, 6) %R% "_df"   
+
+# extract question type (SAQ, NUM, VAS, etc)
+pattern7 <- START %R% "x" %R% repeated(DGT,1,2) %R% "_" %R% repeated("[a-z]",3,3) %R% "_" 
+pattern7.1 <- repeated("[a-z]",3,3)    # used to acquire only the desired chars without surrounding chars
+
+# extract MAQ option no.  
+pattern8 <- "_maq_" %R% DGT %R% optional(DGT)
+
+
+```
+
+```{r Create: functions for use in rest of script - will go into source file}
+number_extract_single2 <- function(x) {
+  as.numeric(str_replace(x, pattern = pattern4, replacement = REF1))
+  }
 
 
 
 ```
+
 
 
 ## Read in test data files   
@@ -79,7 +122,7 @@ pattern1 <- "activity_response_" %R% repeated(DGT, lo = 4, hi = 5) # NB this ext
 
 
 ## Functions for file naming and variable renaming    
-```{r Create: functions for file naming and variable renaming}
+```{r Create: functions for data frame naming, warning=FALSE}
 # Load and rename CSV files ----
 file_names <- Sys.glob(paste0(data_path, "/*.csv"))
 
@@ -93,17 +136,12 @@ study_number <- str_extract(file_names[1], pattern = pattern1)
 study_number <- study_number %>% str_remove_all("activity_response_")
 
 # Create data frame names from file_names and read in data from CSV files -----
-i <- 0
-
+i <- 0   
 for (file_name in file_names) {
   i <- i + 1
-# Extract survey number; this expression will extract 3- to 6-digit survey numbers.
-  
-  str_extract(file_name, pattern = "activity_response_" %R% repeated(DGT,4,5) %R% "_" %R% repeated(DGT,5,6) )
-  str_remove_all("activity_response_" %R% repeated(DGT,4,5) %R% "_")
-  
-activity_numbers[i] <- str_extract(file_name, pattern = "_" %R% repeated(DGT, 5, 6) %R% "_")
-activity_numbers[i] <- activity_numbers[i] %>% str_remove_all("_")
+# extract activity number
+activity_numbers[i] <- str_extract(file_name, pattern = pattern3 )
+activity_numbers[i] <- activity_numbers[i] %>% str_remove_all(pattern3.1) %>% str_remove_all("_")
 
 # Generate df names from CSV file names
 df_name <- paste0("S", study_number, "_", activity_numbers[i], "_df", collapse = NULL)
@@ -120,9 +158,6 @@ for (df_name in df_names)  {
   df_list[[df_name]] %<>% janitor::clean_names()
   }
 
-pattern2 <- "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_question_" %R% "[0-9]"
-pattern2.1 <- DGT %R% optional(DGT) %R% "_maq_metadata_question_"
-
 for (df_name in df_names)  {
   df_list[[df_name]] %<>% select(!matches(pattern2))
   df_list[[df_name]] %<>% select(!matches(pattern2.1))
@@ -130,15 +165,7 @@ for (df_name in df_names)  {
 
 ```
 
-```{r Fix:    extract numeric answer codes and rewrite answer columns}
-# pattern for extracting numeric answer codes 
-pattern1.3 <- "\\{\"answer_id" %R% repeated(not_dgt(), lo = 2, hi = 28) %R% capture(DGT) %R% capture(optional(DGT)) %R% one_or_more(printable())
-
-number_extract_single2 <- function(x) {
-  as.numeric(str_replace(x, pattern = pattern1.3, replacement = REF1))
-  }
-
-# detect 'metadata' answer columns and rewrite content 
+```{r Fix:    extract numeric answer codes and rewrite 'metadata' answer columns}
 for (df_name in df_names)  {
   df_list[[df_name]] %<>% mutate(across(contains("_metadata_"), number_extract_single2))
  }
@@ -147,38 +174,27 @@ for (df_name in df_names)  {
 
 
 ```{r Fix:    rename answer columns}
-# pattern3.1 <- "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_metadata_question_" %R% capture(DGT) %R% #   repeated(capture(optional(DGT)),0,2) %R% "_of_survey_" %R% (DGT) %R%
-#   repeated(optional(DGT),0,5)
-
-pattern3.3 <- START %R% "x" %R% capture(repeated(DGT,0,2)) %R% "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_" %R% repeated(not_dgt(), lo = 0, hi = 18) %R% capture(repeated(DGT,0,2)) %R% one_or_more(printable())
-
-
 i <- 0
-
 for (df_name in df_names)  {
     i <- i + 1
 
 column_names <- colnames(df_list[[df_name]])
-logV <- str_detect(column_names, pattern = pattern3.3)
-activity_no <- str_extract(df_name, pattern = "_" %R% repeated(DGT, 5, 6) %R% "_df" ) %>%
-  str_remove_all("_") %>% str_remove("df")
+logV <- str_detect(column_names, pattern = pattern5)
+activity_no <- str_extract(df_name, pattern = pattern6) %>% str_remove_all("df") %>% str_remove_all("_")
 
-raw_question_numbers_int <- str_extract(column_names[logV], pattern = pattern3.3)
-raw_question_numbers <- str_extract(raw_question_numbers_int, pattern = START %R% "x" %R% DGT %R% optional(DGT))
-raw_question_numbers %<>%  str_remove("x")
+raw_question_numbers_int <- str_extract(column_names[logV], pattern = pattern5)
+raw_question_numbers <- str_extract(raw_question_numbers_int, pattern = pattern5.1)
+raw_question_numbers %<>% str_remove("x")
 
 # extract 3 letter code for question type
-pattern4 <- START %R% "x" %R% repeated(DGT,1,2) %R% "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_" 
-
-question_type_int <- str_extract(column_names[logV], pattern = pattern4) 
-# question_type <- str_remove(question_type_int, "_metadata_") %>% str_extract(repeated("[a-z]", lo = 3, hi = 3))
-
-question_type <- str_extract(question_type_int, repeated("[a-z]", lo = 3, hi = 3))
+question_type_int <- str_extract(column_names[logV], pattern = pattern7)    
+question_type <- str_extract(question_type_int, pattern = pattern7.1)
 
 maqV <- str_detect(column_names[logV], pattern = "_maq_")
 
 if (sum(maqV)>0) {
-  maq_option_no <- str_extract(column_names[logV], pattern =  "_maq_" %R% DGT %R% optional(DGT)) %>% str_remove("_maq") %>% str_replace_na(replacement = "NA") %>% str_replace("NA", "") 
+  maq_option_no <- str_extract(column_names[logV], pattern =  pattern8) %>% str_remove("_maq") %>% str_remove("_") %>%  str_replace_na(replacement = "NA") %>% str_replace("NA", "") 
+  maq_option_no  %<>%  str_replace_all(capture(repeated(DGT,1,2)), "_opt" %R% REF1)
 question_numbers <- str_c("a", activity_no, "_", "q", raw_question_numbers, "_", question_type, maq_option_no, sep = "")  
   }
 
@@ -193,18 +209,50 @@ colnames(df_list[[df_name]]) <- column_names
 ```
 
 
+```{r checks of length for rename answer columns chunk, eval=TRUE}
+length(column_names)
+length(logV)
+length(raw_question_numbers_int)
+length(raw_question_numbers)
+length(question_type_int)
+length(question_type)
+length(maqV)
+length(maq_option_no)
+length(question_numbers)
+
+```
+
+```{r checks for rename answer columns chunk, eval=FALSE}
+# inspect intermediate objects
+column_names # not useful as overwritten
+logV
+raw_question_numbers_int
+raw_question_numbers
+question_type_int
+question_type
+maqV
+maq_option_no
+question_numbers
+```
+
+
+```{r Fix:    format answer columns as the correct type (numeric, character, etc)}
+
+```
+
+
+
 ```{r Create: extract data frames from list}
 list2env(df_list, .GlobalEnv)
 
 ```
 
-```{r Create: functions for joining data frames in df_list into *one* data frame}
+```{r Create: functions for joining data frames in df_list into *one* data frame, eval=TRUE}
 # This function will assume that all of the data frames in df_list have the same research participant IDs, or at least that they are meant to all have the same IDs (if not it's assumed to be a missing data problem)
 # Do I need different functions for one-off questionnaires vs EMAs? 
 
 # first approximation
-combined_df <- bind_rows(S3735_20908_df, S3735_20909_df, S3735_20910_df, .id = "id")
-# need to add survey or activity no.s to the start of column names for this to work properly, else it will confuse same-named cols from different data frames 
+combined_df <- bind_rows(S3735_20908_df, S3735_20909_df, S3735_20910_df, .id = "obs_id")
 
 ```
 
@@ -253,8 +301,8 @@ knitr::knit_exit()
 # pattern3 <- or1(c(",3,", ",3" %R% END, START %R% "3,"))
 # pattern4 <- or1(c(",4,", ",4" %R% END, START %R% "4,"))
 # pattern5 <- or1(c(",5,", ",5" %R% END, START %R% "5,"))
-# pattern6 <- or1(c(",6,", ",6" %R% END, START %R% "6,"))
-# pattern7 <- or1(c(",7,", ",7" %R% END, START %R% "7,"))
+# pattern7 <- or1(c(",6,", ",6" %R% END, START %R% "6,"))
+# pattern8 <- or1(c(",7,", ",7" %R% END, START %R% "7,"))
 # pattern8 <- or1(c(",8,", ",8" %R% END, START %R% "8,"))
 # pattern9 <- or1(c(",9,", ",9" %R% END, START %R% "9,"))
 # pattern10 <- or1(c(",10,", ",10" %R% END, START %R% "10,"))
@@ -266,8 +314,8 @@ knitr::knit_exit()
 #     mutate(`1340_Q19_MAQ_option3` = ifelse(str_detect(string = `1340_Q19_MAQ_concat`, pattern = pattern3), TRUE, FALSE)) %>% 
 #      mutate(`1340_Q19_MAQ_option4` = ifelse(str_detect(string = `1340_Q19_MAQ_concat`, pattern = pattern4), TRUE, FALSE)) %>% 
 #      mutate(`1340_Q19_MAQ_option5` = ifelse(str_detect(string = `1340_Q19_MAQ_concat`, pattern = pattern5), TRUE, FALSE)) %>% 
-#      mutate(`1340_Q19_MAQ_option6` = ifelse(str_detect(string = `1340_Q19_MAQ_concat`, pattern = pattern6), TRUE, FALSE)) %>% 
-#     mutate(`1340_Q19_MAQ_option7` = ifelse(str_detect(string = `1340_Q19_MAQ_concat`, pattern = pattern7), TRUE, FALSE)) %>% 
+#      mutate(`1340_Q19_MAQ_option6` = ifelse(str_detect(string = `1340_Q19_MAQ_concat`, pattern = pattern7), TRUE, FALSE)) %>% 
+#     mutate(`1340_Q19_MAQ_option7` = ifelse(str_detect(string = `1340_Q19_MAQ_concat`, pattern = pattern8), TRUE, FALSE)) %>% 
 #     mutate(`1340_Q19_MAQ_option8` = ifelse(str_detect(string = `1340_Q19_MAQ_concat`, pattern = pattern8), TRUE, FALSE)) %>% 
 #     mutate(`1340_Q19_MAQ_option9` = ifelse(str_detect(string = `1340_Q19_MAQ_concat`, pattern = pattern9), TRUE, FALSE)) %>% 
 #     mutate(`1340_Q19_MAQ_option10` = ifelse(str_detect(string = `1340_Q19_MAQ_concat`, pattern = pattern10), TRUE, FALSE))
@@ -337,11 +385,11 @@ knitr::knit_exit()
 # # test
 # x4 <- "{\"answer_id\":null,\"answer_content\":\"7\",\"answer_location\":{\"latitude\":null,\"longitude\":null,\"accuracy\":null,\"speed\":null},\"answer_response_time\":\"2024-02-19T03:35:15.692000+00:00\",\"answer_question_content\":\"In general how much of the time do you feel you are making progress towards accomplishing your goals?\\n(If your answer is zero you still have to move the slider back and forth so it knows you are not skipping the question.)\\n0 = Never\\n10 = Always\",\"answer_media_interactions\":[],\"unanswered_status_id\":null}"
 # 
-# str_detect(x4, pattern1.3)  #   
+# str_detect(x4, pattern4)  #   
 # 
 # x5 <- "{\"answer_id\":2,\"answer_content\":\"A little of the time\",\"answer_location\":{\"latitude\":null,\"longitude\":null,\"accuracy\":null,\"speed\":null},\"answer_response_time\":\"2024-02-19T03:03:37.484000+00:00\",\"answer_question_content\":\"In the last four weeks about how often ...\\n\\n1. Did you feel tired out for no good reason?\",\"answer_media_interactions\":[],\"unanswered_status_id\":null}"
 # 
-# str_detect(x5, pattern1.3)  #  
+# str_detect(x5, pattern4)  #  
 
 
 # # create function to extract numerical data from 'metadata' column 
@@ -359,6 +407,11 @@ knitr::knit_exit()
 #   }
 # 
 # # Output from this chunk is df_list, a list of data frames with regularised variable names 
+
+# pattern3.1 <- "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_metadata_question_" %R% capture(DGT) %R% #   repeated(capture(optional(DGT)),0,2) %R% "_of_survey_" %R% (DGT) %R%
+#   repeated(optional(DGT),0,5)
+
+
 # ***********
 
 
@@ -409,28 +462,3 @@ knitr::knit_exit()
 
 ```
 
-```{r checks of length for rename answer columns chunk, eval=FALSE}
-# length(column_names)
-# length(logV)
-# length(raw_question_numbers_int)
-# length(raw_question_numbers)
-# length(question_type_int)
-# length(question_type)
-# length(maqV)
-# length(maq_option_no)
-# length(question_numbers)
-
-```
-
-```{r checks for rename answer columns chunk, eval=FALSE}
-# # inspect intermediate objects
-# column_names # not useful as overwritten  
-# logV
-# raw_question_numbers_int
-# raw_question_numbers
-# question_type_int
-# question_type
-# maqV
-# maq_option_no
-# question_numbers   
-```

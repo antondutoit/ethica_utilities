@@ -14,8 +14,6 @@ output: html_document
 # [  ] reorganise combined_df by adding a select() call or similar. Perhaps save vectors of variable names earlier on and use them inside the select() call. Put everything() at the end to ensure _all_ variables are included. 
 # [  ] write function(s) to format answer columns as the correct type (numeric, character, etc)
 
-# [ip] insert "opt" in from of MAQ option col option numbers 
-
 # DONE 
 # [x ] where possible use vectors in str_remove() instead of repeated calls 
 # [x ] change "id" in combined_df to "obs_id"
@@ -26,6 +24,7 @@ output: html_document
 # [x ] Function to join data frames into one 
 
 # [x ] Fix naming of MAQ questions 
+#   [x ] insert "opt" in from of MAQ option col option numbers 
 # [x ] Function to extract data frames from list 
 
 ```

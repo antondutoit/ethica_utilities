@@ -11,21 +11,30 @@ output: html_document
 
 # [  ] Split this into a source file with funs and patterns and a workflow file (ie the remainder of this one)
 # [  ] ? make generic col names shorter 
-# [  ] reorganise combined_df by adding a select() call or similar. Perhaps save vectors of variable names earlier on and use them inside the select() call. Put everything() at the end to ensure _all_ variables are included. 
+# [  ] ? add functions to create variable labels .. maybe. later, (not first release)
+
 # [  ] write function(s) to format answer columns as the correct type (numeric, character, etc)
 
+# [  ] evaluate if I need the MAQ processing code -- may have been superceded by what Avicenna now provides 
+# [  ] consider a study metadata df (or list) as another output of the suggested workflow. 
+#       This could include a data dictionary and labels
+# [ip] add naniar fun to create col with no. NA per line 
+
 # DONE 
+# [x ] make 'deprecated' script and move old code into that 
+# [x ] upgrade function to join data frames so that it does not require their names to be specified! 
+
 # [x ] where possible use vectors in str_remove() instead of repeated calls 
 # [x ] change "id" in combined_df to "obs_id"
 # [x ] move all patterns into one initial block and annotate what they are used for 
 #   [x ] fix pattern numbering
 # [x ] add activity or survey numbers at the start of column names 
 # [x ] use repeated() in line 82f. 
-# [x ] Function to join data frames into one 
-
 # [x ] Fix naming of MAQ questions 
 #   [x ] insert "opt" in from of MAQ option col option numbers 
 # [x ] Function to extract data frames from list 
+# [x ] Function to join data frames into one 
+# [x] reorganise combined_df by adding a select() call or similar. Perhaps save vectors of variable names earlier on and use them inside the select() call. Put everything() at the end to ensure _all_ variables are included. 
 
 ```
 
@@ -48,18 +57,28 @@ knitr::opts_chunk$set(echo = FALSE)
 library(rebus)
 library(tidyverse)      # edit to include only the individual packages needed
 library(magrittr)
+library(knitr)
 library(conflicted)
 
 ```
 
 ```{r set preferences}
-conflicts_prefer(rebus::alpha())   
+conflicts_prefer(rebus::alpha(), dplyr::select())   
 ```
 
 ## Define names and constants
 ```{r Create: Define names and constants}
 # NB backslashes must be changed into forward slashes   # [ ] make or find a wee function to do this   
 data_path <- "C:/Users/atdut/OneDrive - Western Sydney University/PhD/Rwork/ethica_utilities/data_files_json"
+
+sortvec <- c("participant_id", "participant_label", "participant_status", 
+        #     "obs_id", 
+             "uuid", 
+             "session_scheduled_time", "participant_start_time", "participant_end_time", "prompt_time", "record_time", "expiry_time",
+                "duration_seconds_from_scheduled_to_completion_time", "duration_seconds_from_first_response_to_completion_time",
+             "device_id", "device_manufacturer", "device_model", "device_last_used", "device_app_version", "device_app_update_date",
+             "unanswered_status", "activity_version", "status", "triggering_logic_id", "triggering_logic_type", 
+             "location", "n_miss_all")
 
 ```
 
@@ -95,7 +114,6 @@ pattern7.1 <- repeated("[a-z]",3,3)    # used to acquire only the desired chars 
 # extract MAQ option no.  
 pattern8 <- "_maq_" %R% DGT %R% optional(DGT)
 
-
 ```
 
 ```{r Create: functions for use in rest of script - will go into source file}
@@ -103,9 +121,11 @@ number_extract_single2 <- function(x) {
   as.numeric(str_replace(x, pattern = pattern4, replacement = REF1))
   }
 
+mk <- function(x) {
+    kable(x) %>%kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+  }
 
 ```
-
 
 
 ## Read in test data files   
@@ -120,7 +140,7 @@ number_extract_single2 <- function(x) {
 
 
 ## Functions for file naming and variable renaming    
-```{r Create: functions for data frame naming, warning=FALSE}
+```{r Create: functions for data frame naming, warning=FALSE, message=FALSE}
 # Load and rename CSV files ----
 file_names <- Sys.glob(paste0(data_path, "/*.csv"))
 
@@ -170,7 +190,6 @@ for (df_name in df_names)  {
 
 ```
 
-
 ```{r Fix:    rename answer columns}
 i <- 0
 for (df_name in df_names)  {
@@ -206,6 +225,28 @@ colnames(df_list[[df_name]]) <- column_names
 
 ```
 
+```{r create:  Add a column with number of missing values in that row}
+for (df_name in df_names)  {
+  df_list[[df_name]] %<>% naniar::add_n_miss()  
+ }
+
+```
+
+```{r Create: change some var types}
+for (df_name in df_names)  {
+  
+df_list[[df_name]] %<>% select(all_of(sortvec), everything())
+
+df_list[[df_name]] %<>%
+  mutate(participant_id = as.integer(participant_id)) %>%
+  mutate(participant_status = as.integer(participant_status)) %>%
+#  mutate(obs_id = as.integer(obs_id)) %>%
+  mutate(status = as.integer(status)) %>%
+  mutate(triggering_logic_id = as.integer(triggering_logic_id)) %>%
+  mutate(triggering_logic_type = as.integer(triggering_logic_type))
+ }
+
+```
 
 ```{r checks of length for rename answer columns chunk, eval=TRUE}
 length(column_names)
@@ -233,28 +274,39 @@ maq_option_no
 question_numbers
 ```
 
-
-```{r Fix:    format answer columns as the correct type (numeric, character, etc)}
-
-```
-
-
-
-```{r Create: extract data frames from list}
-list2env(df_list, .GlobalEnv)
-
-```
-
 ```{r Create: functions for joining data frames in df_list into *one* data frame, eval=TRUE}
 # This function will assume that all of the data frames in df_list have the same research participant IDs, or at least that they are meant to all have the same IDs (if not it's assumed to be a missing data problem)
 # Do I need different functions for one-off questionnaires vs EMAs? 
 
 # first approximation
-combined_df <- bind_rows(S3735_20908_df, S3735_20909_df, S3735_20910_df, .id = "obs_id")
+combined_df <- bind_rows(df_list, .id = "obs_id")
+
+combined_df %<>% select(all_of(sortvec), everything()) 
+
+# combined_df %<>% 
+#   mutate(participant_id = as.integer(participant_id)) %>% 
+#   mutate(participant_status = as.integer(participant_status)) %>% 
+#   mutate(obs_id = as.integer(obs_id)) %>% 
+#   mutate(status = as.integer(status)) %>% 
+#   mutate(triggering_logic_id = as.integer(triggering_logic_id)) %>% 
+#   mutate(triggering_logic_type = as.integer(triggering_logic_type)) 
 
 ```
 
+```{r Check:  classes and types}
+all_classes <- sapply(combined_df, class) %>% data.frame() %>% t() %>% data.frame() %>% rename(class1=1, class2=2)
+all_types <- as.list(sapply(combined_df, typeof)) %>% data.frame() %>% t() %>% data.frame() %>% rename(type=1)
+classes_and_types <- cbind(all_classes, all_types)
+rm(all_classes, all_types)
 
+classes_and_types %>% mk  
+
+```
+
+```{r Create: extract data frames from list if needed}
+list2env(df_list, .GlobalEnv)
+
+```
 
 ************** STOP HERE ************
 
@@ -328,135 +380,3 @@ knitr::knit_exit()
 # # write.csv(pathways_df, file = "C:/your/file/path/something/like/output_files/your_filename.csv")   
 
 ```
-
-
-```{r Deprecated}
-# # testing
-# x1 <- (df_list[[1]][[1,3]])
-# number_extract_single2((df_list[[1]][[1,3]]))
-
-# # more testing
-# str_detect(x1, pattern = "{\"answer_id\":" %R% capture(DGT))  # TRUE 
-# str_detect(x1, pattern = "\"answer_id\":" %R% capture(DGT) %R% one_or_more(printable()))  # TRUE
-
-# # testing
-# x1 <- "x1_saq_question_1_of_survey_1197"
-# str_detect(x1, pattern2)
-# str_extract(x1, pattern2)
-
-# x2 <- "x1_saq_metadata_question_1_of_survey_1197"  
-# str_detect(x2, pattern2)  # FALSE - good 
-
-# target column name: S3735_s20908_q1 OR s20908_q1
-# x2 <- "x1_saq_metadata_question_1_of_survey_1197"  
-# pattern3 <- "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_metadata_question_" %R% capture(DGT) %R% 
-#   repeated(capture(optional(DGT)),0,2) %R% "_of_survey_" %R% capture(DGT) %R%
-#   repeated(capture(optional(DGT)),0,5)
-
-# more test
-# x6 <- "a,b\""
-# pattern2 <- "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_question_" %R% "[0-9]"
-# pattern_test <- repeated(not_dgt(), lo = 3, hi = 5)
-# 
-# str_detect(x6, pattern_test)
-
-# # functions from pw_new2.10
-# number_extract_single <- function(x) {
-#   as.numeric(str_replace(x, 
-#                          pattern = "\\(ID " %R% 
-#                            capture(DGT) %R% 
-#                            capture(optional(DGT)) %R% 
-#                            "\\) " %R% 
-#                            one_or_more(char_class("a-z","A-Z","0-9"," ")), 
-#                          replacement = REF1))
-#   }
-# 
-# number_extract_multiple <- function(x) {
-#   as.numeric(str_replace(x, 
-#                          pattern = one_or_more("\\(ID " %R% capture(DGT) %R% 
-#                                                  capture(optional(DGT)) %R% "\\) " %R%
-#                                                  one_or_more(char_class("a-z","A-Z","0-9", " "))),
-#                          replacement = REF1 %R% REF2 %R% REF3 %R% REF4))
-#   }
-
-
-# # test
-# x4 <- "{\"answer_id\":null,\"answer_content\":\"7\",\"answer_location\":{\"latitude\":null,\"longitude\":null,\"accuracy\":null,\"speed\":null},\"answer_response_time\":\"2024-02-19T03:35:15.692000+00:00\",\"answer_question_content\":\"In general how much of the time do you feel you are making progress towards accomplishing your goals?\\n(If your answer is zero you still have to move the slider back and forth so it knows you are not skipping the question.)\\n0 = Never\\n10 = Always\",\"answer_media_interactions\":[],\"unanswered_status_id\":null}"
-# 
-# str_detect(x4, pattern4)  #   
-# 
-# x5 <- "{\"answer_id\":2,\"answer_content\":\"A little of the time\",\"answer_location\":{\"latitude\":null,\"longitude\":null,\"accuracy\":null,\"speed\":null},\"answer_response_time\":\"2024-02-19T03:03:37.484000+00:00\",\"answer_question_content\":\"In the last four weeks about how often ...\\n\\n1. Did you feel tired out for no good reason?\",\"answer_media_interactions\":[],\"unanswered_status_id\":null}"
-# 
-# str_detect(x5, pattern4)  #  
-
-
-# # create function to extract numerical data from 'metadata' column 
-# pattern1 <- "\\{\"answer_id\":" %R% capture(DGT) %R% capture(optional(DGT)) %R% one_or_more(printable())
-# 
-# pattern1.1 <-  "\\{\"answer_id\":null,\"answer_content\":\"" %R% capture(DGT) %R% capture(optional(DGT)) %R% one_or_more(printable())
-# 
-# # rewrite pattern 1 for VAS and other question types 
-# pattern1.2 <- group(or1(c(pattern1.1, pattern1), capture = TRUE))
-
-# # # R chunk # # Clean single answer column data ----
-# for (df_name in df_names)  { 
-#   df_temp <- df_list[[df_name]] %>% mutate(across(where(contains("SAQ"))), number_extract_single)
-#   df_list[[df_name]] <- df_temp
-#   }
-# 
-# # Output from this chunk is df_list, a list of data frames with regularised variable names 
-
-# pattern3.1 <- "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_metadata_question_" %R% capture(DGT) %R% #   repeated(capture(optional(DGT)),0,2) %R% "_of_survey_" %R% (DGT) %R%
-#   repeated(optional(DGT),0,5)
-
-
-# ***********
-
-
-
-```
-
-```{r Create: functions for output cleaning}
-# # Function to create column with count of NAs     # redundant- can use a fun from naniar:: or tidyr::, so replace 
-# countRowNAs <- function(x) { sum(is.na(x)) }
-# 
-# count_NA <- function(data) {
-#   apply(data, 1, countRowNAs)
-# }     
-
-```
-
-```{r Test:    try to rewrite col name regex to include MAQ questions, eval=FALSE}
-# # current regex
-# pattern3.1 <- "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_metadata_question_" %R% capture(DGT) %R%
-#   repeated(capture(optional(DGT)),0,2) %R% "_of_survey_" %R% (DGT) %R%
-#   repeated(optional(DGT),0,5)
-# 
-# # sample non-MAQ and MAQ col names
-# nonmaq <- "x2_saq_metadata_question_2_of_survey_1197"
-#    maq <- "x10_maq_2_any_meat"
-# 
-# str_detect(nonmaq, pattern3.1)    # TRUE
-# str_detect(maq, pattern3.1)       # FALSE
-# 
-# # new regex for MAQ only
-# pattern3.2 <- START %R% "x" %R% capture(repeated(DGT,1,2)) %R% "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_" %R% capture(repeated(DGT,1,2)) %R% one_or_more(printable())
-# 
-# str_detect(nonmaq, pattern3.2)    # FALSE
-# str_detect(maq, pattern3.2)       # TRUE
-# 
-# str_replace(nonmaq, pattern = pattern3.2, replacement = REF1 %R% "_" %R% REF2)
-#                                                         # "x2_saq_metadata_question_2_of_survey_1197"
-# str_replace(maq, pattern = pattern3.2, replacement = REF1 %R% "_" %R% REF2)      # "10_2"
-# 
-# # attempt regex for MAQ _and_ SAQ, VAS, etc
-# pattern3.3 <- START %R% "x" %R% capture(repeated(DGT,0,2)) %R% "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_" %R% repeated(not_dgt(), lo = 0, hi = 18) %R% capture(repeated(DGT,0,2)) %R% one_or_more(printable())
-# 
-# str_detect(nonmaq, pattern3.3)    # TRUE
-# str_detect(maq, pattern3.3)       # TRUE
-# 
-# str_replace(nonmaq, pattern3.3, replacement = REF1 %R% "_" %R% REF2)        # s/be "2_2"   # "2_2"
-# str_replace(maq, pattern = pattern3.3, replacement = REF1 %R% "_" %R% REF2) # s/be "10_2"  # "10_2"
-
-```
-

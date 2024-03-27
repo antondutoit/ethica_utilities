@@ -13,14 +13,14 @@ output: html_document
 # [  ] ? make generic col names shorter 
 # [  ] ? add functions to create variable labels .. maybe. later, (not first release)
 
-# [  ] write function(s) to format answer columns as the correct type (numeric, character, etc)
-
 # [  ] evaluate if I need the MAQ processing code -- may have been superceded by what Avicenna now provides 
-# [  ] consider a study metadata df (or list) as another output of the suggested workflow. 
+# [ip] consider a study metadata df (or list) as another output of the suggested workflow. 
 #       This could include a data dictionary and labels
-# [ip] add naniar fun to create col with no. NA per line 
+#       - have a classes_and_types df now
+# [  ] check and fix location of obs.id
 
 # DONE 
+# [x ] write function(s) to format answer columns as the correct type (numeric, character, etc)
 # [x ] make 'deprecated' script and move old code into that 
 # [x ] upgrade function to join data frames so that it does not require their names to be specified! 
 

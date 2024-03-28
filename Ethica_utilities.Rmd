@@ -80,7 +80,7 @@ data_path <- "C:/Users/atdut/OneDrive - Western Sydney University/PhD/Rwork/ethi
 ```
 
 
-```{r Create: constants and patterns for regex - will go into source file}
+```{r Create: constants and patterns for regex - will go into source file, eval=FALSE}
 sortvec <- c("participant_id", "participant_label", "participant_status", 
         #     "obs_id", 
              "uuid", 
@@ -123,7 +123,7 @@ pattern8 <- "_maq_" %R% DGT %R% optional(DGT)
 
 ```
 
-```{r Create: functions for use in rest of script - will go into source file}
+```{r Create: functions for use in rest of script - will go into source file, eval=FALSE}
 number_extract_single2 <- function(x) {
   as.numeric(str_replace(x, pattern = pattern4, replacement = REF1))
   }
@@ -227,7 +227,7 @@ for (df_name in df_names)  {
 
 ```
 
-```{r create:  arrange by answer date-time and add a column with ordinal no of observation}
+```{r create:  arrange by answer dttm and add a column with ordinal no of observation}
 for (df_name in df_names)  {
   df_list[[df_name]] %<>% arrange(record_time)
   activity_no <- str_extract(df_name, pattern = pattern6) %>% str_remove_all("df") %>% str_remove_all("_")

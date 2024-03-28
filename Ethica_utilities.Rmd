@@ -6,19 +6,6 @@ output: html_document
 ---
 
 ```{r To do}
-# [ip] Clarify survey and activity numbers with Amin or Mohammad and alter naming conventions accordingly 
-# [ip] change variable names to agree with Avicenna's new naming scheme (Study / Activity / Survey) 
-
-# [  ] Split this into a source file with funs and patterns and a workflow file (ie the remainder of this one)
-# [  ] ? make generic col names shorter 
-# [  ] ? add functions to create variable labels .. maybe. later, (not first release)
-
-# [  ] evaluate if I need the MAQ processing code -- may have been superceded by what Avicenna now provides 
-# [ip] consider a study metadata df (or list) as another output of the suggested workflow. 
-#       This could include a data dictionary and labels
-#       - have a classes_and_types df now
-# [  ] check and fix location of obs.id
-
 # DONE 
 # [x ] write function(s) to format answer columns as the correct type (numeric, character, etc)
 # [x ] make 'deprecated' script and move old code into that 
@@ -35,9 +22,24 @@ output: html_document
 # [x ] Function to extract data frames from list 
 # [x ] Function to join data frames into one 
 # [x] reorganise combined_df by adding a select() call or similar. Perhaps save vectors of variable names earlier on and use them inside the select() call. Put everything() at the end to ensure _all_ variables are included. 
+# [x ] check and fix location of obs.id - actually obs_id .. ?? 
+# [x] put in an obs id at individual qre and combined df levels  
+# [x] evaluate if I need the MAQ processing code - may have been superceded by what Avicenna now provides- done, the MAQ code is no longer necessary  
+
+# Still to do 
+# [ip] Clarify survey and activity numbers with Amin or Mohammad and alter naming conventions accordingly 
+# [ip] change variable names to agree with Avicenna's new naming scheme (Study / Activity / Survey) 
+# [  ] ? make generic col names shorter 
+
+# [ip] consider a study metadata df (or list) as another output of the suggested workflow. 
+#       This could include a data dictionary and labels
+#       # [  ] ? add functions to create variable labels .. maybe. later, (not first release) 
+#       - have a classes_and_types df now
+# [  ] find complete list of 3-character activity extensions in Avicenna docs 
+# [  ] Split this into a source file with funs and patterns and a workflow file (ie the remainder of this one)
+# [  ] change titles on code chunks to reflect what they actually do! 
 
 ```
-
 
 ```{r Frontmatter and instructions and notes}
 # This script processes CSV files as output from Avicenna/Ethica. 
@@ -48,7 +50,6 @@ output: html_document
 # If you want a CSV file outputted as well, you may un-comment the write.csv() call at the end of this file and add in the appropriate file path. 
 
 ```
-
 
 ```{r load libraries, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
@@ -67,10 +68,19 @@ conflicts_prefer(rebus::alpha(), dplyr::select())
 ```
 
 ## Define names and constants
-```{r Create: Define names and constants}
+```{r Create: Define variables and constants needed for current workflow}
 # NB backslashes must be changed into forward slashes   # [ ] make or find a wee function to do this   
 data_path <- "C:/Users/atdut/OneDrive - Western Sydney University/PhD/Rwork/ethica_utilities/data_files_json"
 
+```
+
+```{r Create: read in code from source file}
+# source(Ethica_utilities_source.R)  
+
+```
+
+
+```{r Create: constants and patterns for regex - will go into source file}
 sortvec <- c("participant_id", "participant_label", "participant_status", 
         #     "obs_id", 
              "uuid", 
@@ -80,16 +90,13 @@ sortvec <- c("participant_id", "participant_label", "participant_status",
              "unanswered_status", "activity_version", "status", "triggering_logic_id", "triggering_logic_type", 
              "location", "n_miss_all")
 
-```
-
-```{r Create: constants and patterns for regex - will go into source file}
 q_type_exts <- c("saq", "maq", "num", "vas", "fft")
 
 # extract Study number  
 pattern1   <- "activity_response_" %R% repeated(DGT,4,5)          # extracts the *Study* no., not the activity no.
 pattern1.1 <- "activity_response_" %R% repeated(DGT,4,5) %R% "_"  # used to remove unwanted chars from Study no.
 
-# used to detect and remove unwanted columns
+# detect unwanted columns (to be removed)
 pattern2 <- "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_question_" %R% "[0-9]"  
 pattern2.1 <- DGT %R% optional(DGT) %R% "_maq_metadata_question_"
 
@@ -104,7 +111,7 @@ pattern4 <- "\\{\"answer_id" %R% repeated(not_dgt(), lo = 2, hi = 28) %R% captur
 pattern5 <- START %R% "x" %R% capture(repeated(DGT,0,2)) %R% "_" %R% repeated("[a-z]", lo = 3, hi = 3) %R% "_" %R% repeated(not_dgt(), lo = 0, hi = 18) %R% capture(repeated(DGT,0,2)) %R% one_or_more(printable())
 pattern5.1 <- START %R% "x" %R% DGT %R% optional(DGT)   # 
 
-# used to extract activity no. from df_name
+# extract activity no. from df_name
 pattern6 <- "_" %R% repeated(DGT, 5, 6) %R% "_df"   
 
 # extract question type (SAQ, NUM, VAS, etc)
@@ -126,18 +133,6 @@ mk <- function(x) {
   }
 
 ```
-
-
-## Read in test data files   
-```{r Create: read in test data files}
-
-```
-
-## Functions for reading in Avicenna data files   
-```{r Create: functions for reading in Avicenna data files}
-
-```
-
 
 ## Functions for file naming and variable renaming    
 ```{r Create: functions for data frame naming, warning=FALSE, message=FALSE}
@@ -232,74 +227,40 @@ for (df_name in df_names)  {
 
 ```
 
+```{r create:  arrange by answer date-time and add a column with ordinal no of observation}
+for (df_name in df_names)  {
+  df_list[[df_name]] %<>% arrange(record_time)
+  activity_no <- str_extract(df_name, pattern = pattern6) %>% str_remove_all("df") %>% str_remove_all("_")
+  new.var <- paste("obs", activity_no, sep = "." )
+  assign(new.var, 1:nrow(df_list[[df_name]]))
+  df_list[[df_name]] %<>% mutate("obs.{activity_no}" := eval(sym(new.var)), .before = uuid)
+  }
+
+```
+
 ```{r Create: change some var types}
 for (df_name in df_names)  {
-  
-df_list[[df_name]] %<>% select(all_of(sortvec), everything())
+  df_list[[df_name]] %<>% select(all_of(sortvec), starts_with("obs."), everything())
 
-df_list[[df_name]] %<>%
-  mutate(participant_id = as.integer(participant_id)) %>%
-  mutate(participant_status = as.integer(participant_status)) %>%
-#  mutate(obs_id = as.integer(obs_id)) %>%
-  mutate(status = as.integer(status)) %>%
-  mutate(triggering_logic_id = as.integer(triggering_logic_id)) %>%
-  mutate(triggering_logic_type = as.integer(triggering_logic_type))
- }
+  df_list[[df_name]] %<>%
+    mutate(participant_id = as.integer(participant_id)) %>%
+    mutate(participant_status = as.integer(participant_status)) %>%
+    mutate(status = as.integer(status)) %>%
+    mutate(triggering_logic_id = as.integer(triggering_logic_id)) %>%
+    mutate(triggering_logic_type = as.integer(triggering_logic_type))
+  }
 
-```
-
-```{r checks of length for rename answer columns chunk, eval=TRUE}
-length(column_names)
-length(logV)
-length(raw_question_numbers_int)
-length(raw_question_numbers)
-length(question_type_int)
-length(question_type)
-length(maqV)
-length(maq_option_no)
-length(question_numbers)
-
-```
-
-```{r checks for rename answer columns chunk, eval=FALSE}
-# inspect intermediate objects
-column_names # not useful as overwritten
-logV
-raw_question_numbers_int
-raw_question_numbers
-question_type_int
-question_type
-maqV
-maq_option_no
-question_numbers
 ```
 
 ```{r Create: functions for joining data frames in df_list into *one* data frame, eval=TRUE}
 # This function will assume that all of the data frames in df_list have the same research participant IDs, or at least that they are meant to all have the same IDs (if not it's assumed to be a missing data problem)
 # Do I need different functions for one-off questionnaires vs EMAs? 
 
-# first approximation
-combined_df <- bind_rows(df_list, .id = "obs_id")
+# 2nd iteration   
+combined_df <- bind_rows(df_list, .id = "original_df")   
 
-combined_df %<>% select(all_of(sortvec), everything()) 
-
-# combined_df %<>% 
-#   mutate(participant_id = as.integer(participant_id)) %>% 
-#   mutate(participant_status = as.integer(participant_status)) %>% 
-#   mutate(obs_id = as.integer(obs_id)) %>% 
-#   mutate(status = as.integer(status)) %>% 
-#   mutate(triggering_logic_id = as.integer(triggering_logic_id)) %>% 
-#   mutate(triggering_logic_type = as.integer(triggering_logic_type)) 
-
-```
-
-```{r Check:  classes and types}
-all_classes <- sapply(combined_df, class) %>% data.frame() %>% t() %>% data.frame() %>% rename(class1=1, class2=2)
-all_types <- as.list(sapply(combined_df, typeof)) %>% data.frame() %>% t() %>% data.frame() %>% rename(type=1)
-classes_and_types <- cbind(all_classes, all_types)
-rm(all_classes, all_types)
-
-classes_and_types %>% mk  
+combined_df %<>% select(all_of(sortvec), starts_with("obs."), everything()) %>%
+  relocate(c(starts_with("obs"), original_df), .before = uuid)
 
 ```
 
@@ -322,12 +283,85 @@ knitr::knit_exit()
 ```
 
 
-## Functions for preprocessing multiple answer questions    
+```{r Create: write CSV files if required}
+# # Un-comment and add file path if a CSV file is required. NB Keep this function call at the end of the script.  
+# # write.csv(pathways_df, file = "C:/your/file/path/something/like/output_files/your_filename.csv")   
+
+```
+
+## Checks    
+```{r checks of length for rename answer columns chunk, eval=TRUE}
+length(column_names)
+length(logV)
+length(raw_question_numbers_int)
+length(raw_question_numbers)
+length(question_type_int)
+length(question_type)
+length(maqV)
+length(maq_option_no)
+length(question_numbers)
+
+```
+
+```{r Check:  classes and types}
+all_classes <- sapply(combined_df, class) %>% data.frame() %>% t() %>% data.frame() %>% rename(class1=1, class2=2)
+all_types <- as.list(sapply(combined_df, typeof)) %>% data.frame() %>% t() %>% data.frame() %>% rename(type=1)
+classes_and_types <- cbind(all_classes, all_types)
+rm(all_classes, all_types)
+
+classes_and_types %>% mk     
+
+```
+
+
+## Deprecated    
+```{r deprecated}
+# combined_df %<>% 
+#   mutate(participant_id = as.integer(participant_id)) %>% 
+#   mutate(participant_status = as.integer(participant_status)) %>% 
+#   mutate(obs_id = as.integer(obs_id)) %>% 
+#   mutate(status = as.integer(status)) %>% 
+#   mutate(triggering_logic_id = as.integer(triggering_logic_id)) %>% 
+#   mutate(triggering_logic_type = as.integer(triggering_logic_type)) 
+
+# test_df <- data.frame(a = c(6,7,8), b = c("a", "b", "c"))
+# j <- 0
+# for (j in 0:2)  {
+#   j <- j + 1
+# 
+#   varname <- paste("constant_val", j, sep = "." )
+#   assign(varname, 1:nrow(test_df))
+# 
+#   test_df %<>% mutate("constant_val.{j}" := eval(sym(varname)))
+#   }
+
+# for (df_name in df_names)  {
+#   df_list[[df_name]] %<>% arrange(record_time)
+#   activity_no <- str_extract(df_name, pattern = pattern6) %>% str_remove_all("df") %>% str_remove_all("_")
+#   newvar <- paste("obs", activity_no, sep = "." )
+#   df_list[[df_name]] %<>% mutate(newvar = row_number(), .before = uuid)
+#  }
+
+```
+
+```{r checks for rename answer columns chunk, eval=FALSE}
+# # inspect intermediate objects
+# column_names # not useful as overwritten
+# logV
+# raw_question_numbers_int
+# raw_question_numbers
+# question_type_int
+# question_type
+# maqV
+# maq_option_no
+# question_numbers
+```
+
 ```{r Create: functions for preprocessing multiple answer questions}
 # # put NA in 1340_Q19_MAQ
 # test_pathways_baselines_df <- test_pathways_baselines_df %>%
 #     mutate_at(vars(`1340_Q19_MAQ`), ~ na_if(., ""))             # NB mutate_at() may be depreceated by nnow; replace
-# 
+
 # # create multiple cols for 1340_Q19_MAQ. First use str_split to create a matrix with one col for each answer, then make into df.
 # diagnosed_conditions_mx <- str_split(string = test_pathways_baselines_df$`1340_Q19_MAQ`, pattern = " & ", simplify = TRUE)
 # diagnosed_conditions_df <- as.data.frame(diagnosed_conditions_mx)
@@ -357,7 +391,6 @@ knitr::knit_exit()
 # pattern9 <- or1(c(",9,", ",9" %R% END, START %R% "9,"))
 # pattern10 <- or1(c(",10,", ",10" %R% END, START %R% "10,"))
 # 
-# 
 # test_pathways_baselines_df <- test_pathways_baselines_df %>% 
 #     mutate(`1340_Q19_MAQ_option1` = ifelse(str_detect(string = `1340_Q19_MAQ_concat`, pattern = pattern1), TRUE, FALSE)) %>%
 #     mutate(`1340_Q19_MAQ_option2` = ifelse(str_detect(string = `1340_Q19_MAQ_concat`, pattern = pattern2), TRUE, FALSE)) %>%
@@ -372,11 +405,5 @@ knitr::knit_exit()
 # 
 # test_pathways_baselines_df <- test_pathways_baselines_df %>% 
 #     mutate_at(vars(`1340_Q19_MAQ_1`:`1340_Q19_MAQ_6`), ~ factor(., levels = c(1:10), labels = c("Heart disease", "Other heart condition", "Blood clot thrombosis", "Asthma", "Hay fever", "Depression", "Anxiety", "Thyroid problems", "None of these", "Other"), exclude = NA))
-
-```
-
-```{r Create: write CSV files if required}
-# # Un-comment and add file path if a CSV file is required. NB Keep this function call at the end of the script.  
-# # write.csv(pathways_df, file = "C:/your/file/path/something/like/output_files/your_filename.csv")   
 
 ```

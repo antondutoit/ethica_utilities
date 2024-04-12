@@ -32,11 +32,28 @@ output: html_document
 # [  ] ? make generic col names shorter 
 # [  ] ? add an obs.all col which gives the ordinal # across _all_ observations, not just within one activity. 
 # [ip] ? consider a study metadata df (or list) as another output of the suggested workflow. 
-#       This could include a data dictionary and labels
+#       This could include a data dictionary and labels - but look at this first:
+#       https://learn.avicennaresearch.com/how-to/activities/online-surveys-documentation-made-easy-with-avicenna
+#       because it may have already been done 
 #       # [  ] ? add functions to create variable labels .. maybe. later, (not first release) 
 #       - have a classes_and_types df now
 
-# [  ] find complete list of 3-character activity extensions in Avicenna docs 
+# [x ] find complete list of 3-character activity extensions in Avicenna docs 
+      # SAQ: Single Answer
+      # MAQ: Multiple Answer
+      # AUT: Audio/Text
+      # IMG: Image
+      # AUD: Audio
+      # VID: Video
+      # VAS: Visual Analog Scale
+      # MAS: Mass
+      # LEN: Length
+      # BAR: Barcode
+      # CAL: Calendar
+      # NUM: Number
+      # FFT: Text / Information
+# [  ] related: llok at https://learn.avicennaresearch.com/reference/survey/view-responses#survey-data-structure to see Question Type ID q_type_id, which encodes this information 
+# 
 # [ip] Split this into a source file with funs and patterns and a workflow file (ie the remainder of this one)
 #       [  ] decide what is a function and what is part of the rest of the workflow 
 # [  ] change titles on code chunks to reflect what they actually do! 
